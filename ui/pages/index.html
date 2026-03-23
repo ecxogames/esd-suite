@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESD Suite Engine</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            padding: 2rem;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: #fff;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        button:hover { background-color: #0056b3; }
+        #response {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>ESD Suite Prototype</h1>
+    <p>Cross-platform runtime with embedded Python.</p>
+    <button onclick="sendToBackend()">Ping Python Backend</button>
+    <div id="response">Waiting for action...</div>
+
+    <script>
+        function sendToBackend() {
+            if (!window.invokeBridge) {
+                document.getElementById("response").innerText = "Error: C++ Webview Bridge not found!";
+                return;
+            }
+            
+            // Send a JSON string to C++ -> Python
+            window.invokeBridge(JSON.stringify({ action: "ping", data: "Hello from UI!" }))
+                .then(response => {
+                    document.getElementById("response").innerText = "Python responded: " + response;
+                })
+                .catch(err => {
+                    document.getElementById("response").innerText = "Error calling bridge: " + err;
+                });
+        }
+    </script>
+</body>
+</html>
