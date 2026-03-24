@@ -1,3 +1,10 @@
 /build
 /prompts
 /.vscode
+/dist
+/private/__pycache__
+/public/__pycache__
+/server/__pycache__
+/server/__pycache__
+/server/__pycache__
+/server/__pycache__

@@ -2,107 +2,244 @@
 <html>
 <head>
     <title>ESD Suite Engine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            /* Background Colors */
+            --bg-app: #0f0f0f;
+            --bg-panel: #181818;
+            --bg-header: #0a0a0a;
+            --bg-elevated: #1e1e1e;
+            --bg-hover: rgba(255, 255, 255, 0.05);
+
+            /* Border Colors */
+            --border-color: #2a2a2a;
+            --border-subtle: #333;
+            --border-focus: #2563eb;
+
+            /* Text Colors */
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --text-muted: #666;
+            --text-white: #ffffff;
+
+            /* Accent Colors */
+            --accent-color: #2563eb;
+            --accent-hover: #1d4ed8;
+
+            /* Status Colors */
+            --success: #22c55e;
+            --error: #ef4444;
+
+            /* Dimensions */
+            --radius-sm: 4px;
+            --radius-md: 6px;
+            --radius-lg: 8px;
+            --transition-fast: 0.15s ease;
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 12px; height: 12px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: rgba(100, 100, 100, 0.5); border-radius: 6px; border: 3px solid transparent; background-clip: content-box; }
+        ::-webkit-scrollbar-thumb:hover { background-color: rgba(100, 100, 100, 0.7); }
+
         body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f4f4f9;
-            color: #333;
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.5;
             margin: 0;
             padding: 0;
-            text-align: center;
-        }
-        .container {
-            padding: 2rem;
             display: flex;
             flex-direction: column;
-            gap: 20px;
             align-items: center;
         }
-        .card {
-            background: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+        .titlebar {
             width: 100%;
-            max-width: 500px;
-        }
-        .drag-bar {
-            background-color: #2c3e50;
-            color: white;
-            padding: 10px;
+            height: 36px;
+            padding: 0 10px;
+            background-color: var(--bg-header);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            box-sizing: border-box;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 500;
             cursor: move;
             user-select: none;
+            z-index: 100;
+        }
+
+        .main-wrapper {
+            margin-top: 36px; /* Offset for fixed titlebar */
+            padding: 40px 20px;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            box-sizing: border-box;
+        }
+
+        .header-content {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-white);
+            margin: 0 0 8px 0;
+        }
+
+        .subtitle {
             font-size: 14px;
-            font-weight: bold;
+            color: var(--text-secondary);
+            margin: 0;
         }
-        button {
-            padding: 10px 20px;
+
+        .card {
+            background: rgba(0, 0, 0, 0.05); /* Match guideline panel */
+            border: 1px solid rgba(0, 0, 0, 0.25);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            transition: all var(--transition-fast);
+            text-align: left;
+        }
+
+        .card:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .card h3 {
             font-size: 16px;
-            border: none;
-            border-radius: 5px;
-            background-color: #007bff;
-            color: #fff;
-            cursor: pointer;
-            margin-top: 10px;
+            font-weight: 600;
+            color: var(--text-white);
+            margin: 0 0 8px 0;
         }
-        button:hover { background-color: #0056b3; }
-        #response {
-            margin-top: 15px;
-            padding: 10px;
-            background: #eef2f5;
-            border-radius: 5px;
-            font-family: monospace;
+
+        .card p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin: 0 0 20px 0;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: inherit;
+            transition: all var(--transition-fast);
+            box-sizing: border-box;
+            margin-bottom: 16px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            background: var(--bg-panel);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: rgba(0, 0, 0, 0.1);
+            color: var(--text-primary);
+            border: 1px solid rgba(0, 0, 0, 0.25);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            flex: 1;
+        }
+
+        .btn:hover { background: rgba(0, 0, 0, 0.2); }
+        .btn:active { transform: scale(0.98); }
+
+        .btn-primary { background: var(--accent-color); border-color: var(--accent-color); color: var(--text-white); }
+        .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+        .btn-success { background: rgba(34, 197, 94, 0.5); border-color: rgba(34, 197, 94, 0.25); color: var(--text-white); }
+        .btn-success:hover { background: rgba(34, 197, 94, 0.75); }
+
+        .btn-danger { background: rgba(239, 68, 68, 0.5); border-color: rgba(239, 68, 68, 0.25); color: var(--text-white); }
+        .btn-danger:hover { background: rgba(239, 68, 68, 0.75); }
+
+        .response-box {
+            margin-top: 16px;
+            padding: 12px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            color: var(--accent-color);
             word-wrap: break-word;
         }
     </style>
 </head>
 <body>
-    <div class="drag-bar" onmousedown="if(window.dragWindow) window.dragWindow('')">
+    <div class="titlebar" onmousedown="if(window.dragWindow) window.dragWindow('')">
         Native Drag Area (Requires DRAG_BACKGROUND=true)
     </div>
 
-    <div class="container">
-        <h1>ESD Suite Prototype</h1>
-        <p>Cross-platform runtime with embedded Python.</p>
+    <div class="main-wrapper">
+        <div class="header-content">
+            <h1>ESD Suite Prototype</h1>
+            <p class="subtitle">Cross-platform runtime with embedded Python.</p>
+        </div>
         
         <div class="card">
             <h3>1. Bridge Example</h3>
             <p>Communicate seamlessly with the Python backend.</p>
-            <button onclick="sendToBackend()">Ping Python Backend</button>
-            <div id="response">Waiting for action...</div>
+            <button class="btn btn-primary" onclick="sendToBackend()">Ping Python Backend</button>
+            <div id="response" class="response-box">Waiting for action...</div>
         </div>
 
         <div class="card">
-            <h3>2. OS Views and Navigation</h3>
-            <p>Navigate to entirely different views within your application.</p>
-            <button onclick="window.location.href='../os/example.html'">Go to OS Example Page</button>
-        </div>
-
-        <div class="card">
-            <h3>3. Dynamic Component Loader</h3>
-            <p>Reusable components fetched dynamically from <code>ui/components/</code></p>
-            <div id="component-container" style="margin-top: 15px; padding: 10px; border: 2px dashed #aaa; border-radius: 5px;">
-                Loading component...
+            <h3>2. Backend Architecture Demo</h3>
+            <p>Calling scripts separated cleanly into public and private scopes.</p>
+            <div>
+                <input type="text" id="userInput" class="form-input" placeholder="Type a name or text..." />
+            </div>
+            <div class="button-group">
+                <button class="btn btn-success" onclick="callPublic()">Public Method</button>
+                <button class="btn btn-danger" onclick="callPrivate()">Private Secure Hash</button>
+            </div>
+            <div id="arch-response" class="response-box">
+                Waiting for backend...
             </div>
         </div>
     </div>
 
     <script>
-        // Fetch component when the UI loads
-        document.addEventListener("DOMContentLoaded", () => {
-            fetch('../components/example.html')
-                .then(response => {
-                    if (!response.ok) throw new Error("Component file not found");
-                    return response.text();
-                })
-                .then(html => {
-                    document.getElementById('component-container').innerHTML = html;
-                })
-                .catch(err => {
-                    document.getElementById('component-container').innerHTML = `<span style="color: red;">Error: ${err.message}</span>`;
-                });
-        });
-
         function sendToBackend() {
             if (!window.invokeBridge) {
                 document.getElementById("response").innerText = "Error: C++ Webview Bridge not found!";
@@ -117,6 +254,20 @@
                 .catch(err => {
                     document.getElementById("response").innerText = "Error calling bridge: " + err;
                 });
+        }
+
+        function callPublic() {
+            const val = document.getElementById("userInput").value;
+            window.invokeBridge(JSON.stringify({ action: "public_demo", name: val }))
+                .then(res => document.getElementById("arch-response").innerText = "Public Server Says: " + res)
+                .catch(err => document.getElementById("arch-response").innerText = "Error: " + err);
+        }
+
+        function callPrivate() {
+            const val = document.getElementById("userInput").value;
+            window.invokeBridge(JSON.stringify({ action: "private_demo", secret_data: val }))
+                .then(res => document.getElementById("arch-response").innerText = "Private DB Server Says: " + res)
+                .catch(err => document.getElementById("arch-response").innerText = "Error: " + err);
         }
     </script>
 </body>
