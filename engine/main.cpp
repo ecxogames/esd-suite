@@ -222,6 +222,11 @@ int main() {
                        "sys.path.append(os.getcwd())\n"
                        "print('Python backend initialized.')");
 
+#ifdef _WIN32
+    // Allows CORS fetching and module scripting directly out of the local file:// protocol
+    _putenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--allow-file-access-from-files --remote-allow-origins=*");
+#endif
+
     // 2. Initialize the Webview
     bool devTools = true;
     if (rootConfig.count("DEVTOOLS") && rootConfig.at("DEVTOOLS") == "false") {

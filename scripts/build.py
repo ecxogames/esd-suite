@@ -79,8 +79,33 @@ def build_regular():
     
     run_cmake_build()
     exe = find_exe()
-    if exe:
-        print(f"\n[Success] Built locally for testing: {exe}")
+    if not exe:
+        print("[Error] Executable not found after build.")
+        return
+
+    dist_dir = os.path.join("dist", "Regular")
+    if os.path.exists(dist_dir):
+        shutil.rmtree(dist_dir)
+    os.makedirs(dist_dir)
+
+    props = parse_properties_config()
+    app_title = props.get("TITLE", "ESDEngine")
+    safe_exe_name = "".join(c for c in app_title if c.isalnum() or c in " _-") + ".exe"
+
+    print("\n -> Copying executable...")
+    dest_exe = os.path.join(dist_dir, safe_exe_name)
+    shutil.copy(exe, dest_exe)
+
+    # Optional: copy resources like UI, Server, Config for local testing from this Regular directory
+    try:
+        shutil.copytree("ui", os.path.join(dist_dir, "ui"))
+        shutil.copytree("server", os.path.join(dist_dir, "server"))
+        if os.path.exists("properties.config"):
+            shutil.copy("properties.config", dist_dir)
+    except Exception as e:
+        print(f" -> [Warning] Skipping some asset copies: {e}")
+
+    print(f"\n[Success] Built locally for testing: {dest_exe}")
 
 def build_standalone():
     print_header("SANDBOX / SELF-SUSTAINED BUILD")

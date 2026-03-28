@@ -32,14 +32,23 @@ def get_exe_path():
 def get_latest_mtime():
     """Scan all tracked files and return the most recent modification timestamp."""
     max_ts = 0
+    # Files to explicitly ignore from watch path
+    IGNORE_FILES = {'icon.rc', 'converted_icon.ico'}
+    IGNORE_DIRS = {'__pycache__'}
+    
     for path in WATCH_PATHS:
         if not os.path.exists(path):
             continue
         if os.path.isfile(path):
-            max_ts = max(max_ts, os.path.getmtime(path))
+            if os.path.basename(path) not in IGNORE_FILES:
+                max_ts = max(max_ts, os.path.getmtime(path))
         else:
-            for root, _, files in os.walk(path):
+            for root, dirs, files in os.walk(path):
+                # ignore cache dirs
+                dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
                 for f in files:
+                    if f in IGNORE_FILES:
+                        continue
                     try:
                         filepath = os.path.join(root, f)
                         max_ts = max(max_ts, os.path.getmtime(filepath))
@@ -83,8 +92,9 @@ def main():
     print("[Dev] Starting live development watcher...")
     print(f"[Dev] Watching for changes in: {', '.join(WATCH_PATHS)}")
     
-    last_mtime = get_latest_mtime()
     app_process = start_app()
+    # Update last_mtime AFTER build so we don't immediately restart if build touched generated files
+    last_mtime = get_latest_mtime()
     
     try:
         while True:
@@ -94,7 +104,6 @@ def main():
             # If modification timestamp updated
             if current_mtime > last_mtime:
                 print("\n[Dev] Detected file changes! Restarting...")
-                last_mtime = current_mtime
                 
                 # Terminate running app gracefully
                 if app_process and app_process.poll() is None:
@@ -103,6 +112,7 @@ def main():
                     
                 # Rebuild and restart
                 app_process = start_app()
+                last_mtime = get_latest_mtime()
                 
     except KeyboardInterrupt:
         print("\n[Dev] Shutting down watcher...")
