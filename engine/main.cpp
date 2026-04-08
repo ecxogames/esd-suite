@@ -5,6 +5,10 @@
 #include <fstream>
 #include <sstream>
 #include <unordered_map>
+#include <mutex>
+#include <condition_variable>
+#include <map>
+#include <atomic>
 
 // Workaround to prevent MSVC from searching for the Python debug library (pythonXX_d.lib)
 #if defined(_MSC_VER) && defined(_DEBUG)
@@ -67,6 +71,112 @@ std::unordered_map<std::string, std::string> LoadConfig(const std::string& filen
     return config;
 }
 
+// ============================================================================
+// Python Bridge Module — exposes a "bridge" C extension to Python
+//
+// This module is registered via PyImport_AppendInittab() before Py_Initialize()
+// so that any Python code can do `import bridge` to access these functions.
+//
+// Two functions are exposed:
+//   bridge.eval_js(code)  — fire-and-forget JS execution (safe from any thread)
+//   bridge.call_js(expr)  — synchronous JS eval with return value (background threads only)
+//
+// The call_js function uses a request/response pattern:
+//   1. Python generates a unique request ID and dispatches JS to the UI thread
+//   2. The JS evaluates the expression and calls __bridgeReturn with the result
+//   3. __bridgeReturn stores the result and signals a condition variable
+//   4. Python (waiting on the CV with GIL released) picks up the result and returns
+// ============================================================================
+
+// Global pointer to the webview instance, set in main() after webview creation.
+// Read by bridge functions from Python threads — assigned once before any Python call is possible.
+static webview::webview* g_webview = nullptr;
+
+// Synchronization state for call_js: a mutex-protected map of pending request IDs to results,
+// with a condition variable to wake the waiting Python thread when a result arrives.
+static std::mutex g_js_mutex;
+static std::condition_variable g_js_cv;
+static std::map<int, std::string> g_js_results;
+static std::atomic<int> g_js_request_id{0};
+
+// bridge.eval_js(code) — Dispatches JS code to the WebView's UI thread.
+// Returns immediately with {"status": "ok"}. The JS executes asynchronously.
+// Safe to call from any context, including inside handle_message callbacks.
+static PyObject* py_eval_js(PyObject* self, PyObject* args) {
+    const char* js_code;
+    if (!PyArg_ParseTuple(args, "s", &js_code)) return NULL;
+    if (!g_webview) {
+        PyErr_SetString(PyExc_RuntimeError, "WebView not initialized");
+        return NULL;
+    }
+    std::string code(js_code);
+    g_webview->dispatch([code]() { g_webview->eval(code); });
+    return PyUnicode_FromString("{\"status\": \"ok\"}");
+}
+
+// bridge.call_js(expression) — Evaluates a JS expression and returns its result as a string.
+// IMPORTANT: This function blocks the calling thread for up to 5 seconds. It releases the
+// Python GIL before waiting so other Python threads can run. It CANNOT be called from the
+// main UI thread (i.e. from inside a webview binding callback like handle_message), because
+// the dispatched JS needs the UI thread's event loop to execute — calling from the UI thread
+// would deadlock. Use bridge.eval_js() for fire-and-forget from the main thread instead.
+static PyObject* py_call_js(PyObject* self, PyObject* args) {
+    const char* expression;
+    if (!PyArg_ParseTuple(args, "s", &expression)) return NULL;
+    if (!g_webview) {
+        PyErr_SetString(PyExc_RuntimeError, "WebView not initialized");
+        return NULL;
+    }
+
+    int id = g_js_request_id++;  // Unique ID to match this request with its __bridgeReturn callback
+    std::string expr(expression);
+    // Wrap the expression in a try/catch IIFE that calls __bridgeReturn with the result or error
+    std::string js = "(function(){ try { var __r = " + expr +
+        "; window.__bridgeReturn(JSON.stringify({id:" + std::to_string(id) +
+        ",result:typeof __r === 'string' ? __r : JSON.stringify(__r)})); } catch(e) { " +
+        "window.__bridgeReturn(JSON.stringify({id:" + std::to_string(id) +
+        ",error:e.message})); } })()";
+
+    g_webview->dispatch([js]() { g_webview->eval(js); });
+
+    // Release GIL before blocking wait to avoid deadlocks
+    std::string result;
+    bool ok = false;
+    Py_BEGIN_ALLOW_THREADS
+    std::unique_lock<std::mutex> lock(g_js_mutex);
+    ok = g_js_cv.wait_for(lock, std::chrono::seconds(5),
+        [id]() { return g_js_results.count(id) > 0; });
+    if (ok) {
+        result = g_js_results[id];
+        g_js_results.erase(id);
+    } else {
+        g_js_results.erase(id); // Cleanup stale entry on timeout
+    }
+    Py_END_ALLOW_THREADS
+
+    if (ok) {
+        return PyUnicode_FromString(result.c_str());
+    }
+    PyErr_SetString(PyExc_TimeoutError, "call_js timed out after 5 seconds");
+    return NULL;
+}
+
+static PyMethodDef BridgeMethods[] = {
+    {"eval_js", py_eval_js, METH_VARARGS, "Execute JS in WebView (fire-and-forget)"},
+    {"call_js", py_call_js, METH_VARARGS, "Execute JS expression and return result (background threads only)"},
+    {NULL, NULL, 0, NULL}
+};
+
+static struct PyModuleDef bridgemodule = {
+    PyModuleDef_HEAD_INIT, "bridge", NULL, -1, BridgeMethods
+};
+
+PyMODINIT_FUNC PyInit_bridge(void) {
+    return PyModule_Create(&bridgemodule);
+}
+
+// ============================================================================
+
 #ifdef _WIN32
 // Tell MSVC linker to build a Windows GUI app (no console by default) but keep main() as the entrypoint.
 #pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
@@ -91,7 +201,8 @@ std::string CallPythonBackend(const std::string& message) {
             PyObject* pValue = PyObject_CallObject(pFunc, pArgs);
             Py_DECREF(pArgs);
             if (pValue != nullptr) {
-                resultStr = PyUnicode_AsUTF8(pValue);
+                const char* tmp = PyUnicode_AsUTF8(pValue);
+                if (tmp) resultStr = std::string(tmp);
                 Py_DECREF(pValue);
             }
         } else {
@@ -105,8 +216,170 @@ std::string CallPythonBackend(const std::string& message) {
     return resultStr;
 }
 
+// Minimal JSON string value extractor — finds "key":"value" and returns value.
+// Only handles simple string values (no numbers, booleans, or nested objects).
+// This is sufficient because the JSON is generated by our own JS code with a known format.
+std::string ExtractJsonValue(const std::string& json, const std::string& key) {
+    std::string search = "\"" + key + "\":\"";
+    size_t pos = json.find(search);
+    if (pos == std::string::npos) return "";
+    pos += search.length();
+    size_t end = json.find("\"", pos);
+    if (end == std::string::npos) return "";
+    return json.substr(pos, end - pos);
+}
+
+// Escape a string for safe JSON embedding (handles " and \)
+std::string EscapeJsonString(const std::string& s) {
+    std::string out;
+    out.reserve(s.size());
+    for (char c : s) {
+        if (c == '"') out += "\\\"";
+        else if (c == '\\') out += "\\\\";
+        else out += c;
+    }
+    return out;
+}
+
+// Dynamically imports a Python module from the public/ or private/ directory and calls
+// a specific function with keyword arguments parsed from a JSON string.
+//
+// Flow: JS sends {folder, module, function, args} -> C++ imports <folder>.<module> ->
+//       calls <function>(**json.loads(args)) -> returns the result as a string.
+//
+// If the function returns a dict or list, it's serialized to JSON automatically.
+// If it returns anything else, str() is called on it.
+// Errors are returned as {"error": "message"} JSON strings.
+std::string CallPythonModule(const std::string& folder, const std::string& module_name,
+                              const std::string& func_name, const std::string& args_json) {
+    std::string resultStr = "{\"error\": \"Failed to call Python module\"}";
+
+    // Security: validate folder is strictly "public" or "private"
+    if (folder != "public" && folder != "private") {
+        return "{\"error\": \"Invalid folder: must be 'public' or 'private'\"}";
+    }
+    // Security: module_name must not contain dots or slashes (no path traversal)
+    if (module_name.find('.') != std::string::npos || module_name.find('/') != std::string::npos
+        || module_name.find('\\') != std::string::npos || module_name.empty()) {
+        return "{\"error\": \"Invalid module name\"}";
+    }
+
+    std::string full_module = folder + "." + module_name;
+    PyObject* pName = PyUnicode_DecodeFSDefault(full_module.c_str());
+    PyObject* pModule = PyImport_Import(pName);
+    Py_DECREF(pName);
+
+    if (pModule != nullptr) {
+        PyObject* pFunc = PyObject_GetAttrString(pModule, func_name.c_str());
+        if (pFunc && PyCallable_Check(pFunc)) {
+            // Parse args_json into Python kwargs dict via json.loads
+            PyObject* json_module = PyImport_ImportModule("json");
+            if (!json_module) {
+                if (PyErr_Occurred()) PyErr_Print();
+                Py_XDECREF(pFunc);
+                Py_DECREF(pModule);
+                return "{\"error\": \"Failed to import json module\"}";
+            }
+            PyObject* loads_func = PyObject_GetAttrString(json_module, "loads");
+            if (!loads_func) {
+                if (PyErr_Occurred()) PyErr_Print();
+                Py_DECREF(json_module);
+                Py_XDECREF(pFunc);
+                Py_DECREF(pModule);
+                return "{\"error\": \"Failed to get json.loads\"}";
+            }
+            PyObject* json_str = PyUnicode_FromString(args_json.c_str());
+            PyObject* json_args = PyTuple_Pack(1, json_str);
+            PyObject* kwargs = PyObject_CallObject(loads_func, json_args);
+            Py_DECREF(json_str);
+            Py_DECREF(json_args);
+            Py_DECREF(loads_func);
+            Py_DECREF(json_module);
+
+            PyObject* pValue = nullptr;
+            if (kwargs && PyDict_Check(kwargs)) {
+                PyObject* empty_args = PyTuple_New(0);
+                pValue = PyObject_Call(pFunc, empty_args, kwargs);
+                Py_DECREF(empty_args);
+                Py_DECREF(kwargs);
+            } else {
+                if (kwargs) Py_DECREF(kwargs);
+                if (PyErr_Occurred()) PyErr_Clear();
+                PyObject* pArgs = PyTuple_New(1);
+                PyTuple_SetItem(pArgs, 0, PyUnicode_FromString(args_json.c_str()));
+                pValue = PyObject_CallObject(pFunc, pArgs);
+                Py_DECREF(pArgs);
+            }
+
+            if (pValue != nullptr) {
+                if (PyDict_Check(pValue) || PyList_Check(pValue)) {
+                    PyObject* json_mod = PyImport_ImportModule("json");
+                    if (json_mod) {
+                        PyObject* dumps = PyObject_GetAttrString(json_mod, "dumps");
+                        if (dumps) {
+                            PyObject* dump_args = PyTuple_Pack(1, pValue);
+                            if (dump_args) {
+                                PyObject* json_result = PyObject_CallObject(dumps, dump_args);
+                                if (json_result) {
+                                    const char* tmp = PyUnicode_AsUTF8(json_result);
+                                    if (tmp) resultStr = std::string(tmp);
+                                    Py_DECREF(json_result);
+                                } else {
+                                    if (PyErr_Occurred()) PyErr_Print();
+                                }
+                                Py_DECREF(dump_args);
+                            }
+                            Py_DECREF(dumps);
+                        }
+                        Py_DECREF(json_mod);
+                    }
+                } else {
+                    PyObject* str_val = PyObject_Str(pValue);
+                    if (str_val) {
+                        const char* tmp = PyUnicode_AsUTF8(str_val);
+                        if (tmp) resultStr = std::string(tmp);
+                        Py_DECREF(str_val);
+                    } else {
+                        if (PyErr_Occurred()) PyErr_Clear();
+                    }
+                }
+                Py_DECREF(pValue);
+            } else {
+                if (PyErr_Occurred()) {
+                    PyObject *ptype, *pvalue, *ptraceback;
+                    PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+                    if (pvalue) {
+                        PyObject* str_val = PyObject_Str(pvalue);
+                        if (str_val) {
+                            const char* tmp = PyUnicode_AsUTF8(str_val);
+                            if (tmp) resultStr = "{\"error\": \"" + EscapeJsonString(std::string(tmp)) + "\"}";
+                            Py_DECREF(str_val);
+                        }
+                    }
+                    Py_XDECREF(ptype);
+                    Py_XDECREF(pvalue);
+                    Py_XDECREF(ptraceback);
+                }
+            }
+        } else {
+            if (PyErr_Occurred()) PyErr_Print();
+            resultStr = "{\"error\": \"Function '" + EscapeJsonString(func_name) + "' not found in " + EscapeJsonString(full_module) + "\"}";
+        }
+        Py_XDECREF(pFunc);
+        Py_DECREF(pModule);
+    } else {
+        if (PyErr_Occurred()) PyErr_Print();
+        resultStr = "{\"error\": \"Module '" + full_module + "' not found\"}";
+    }
+    return resultStr;
+}
+
 // Applies window properties dynamically to the window handle
+#ifdef _WIN32
 void ApplyWindowProperties(webview::webview& w, HWND hwnd, const std::unordered_map<std::string, std::string>& config, bool& dragBackgroundOut) {
+#else
+void ApplyWindowProperties(webview::webview& w, void* hwnd, const std::unordered_map<std::string, std::string>& config, bool& dragBackgroundOut) {
+#endif
     std::string title = config.count("TITLE") ? config.at("TITLE") : "ESD Suite Framework";
     w.set_title(title);
 
@@ -217,6 +490,9 @@ int main() {
     }
 
     // 1. Initialize Python Interpreter
+    // Register the built-in "bridge" module BEFORE Py_Initialize() so Python code
+    // can do `import bridge` to access eval_js() and call_js().
+    PyImport_AppendInittab("bridge", PyInit_bridge);
     Py_Initialize();
     PyRun_SimpleString("import sys, os\n"
                        "sys.path.append(os.getcwd())\n"
@@ -234,7 +510,8 @@ int main() {
     }
 
     webview::webview w(devTools, nullptr);
-    
+    g_webview = &w;  // Store global pointer so Python's bridge module can dispatch JS
+
     bool contextMenu = true;
     if (rootConfig.count("DEFAULT_CONTEXTUAL_MENU") && rootConfig.at("DEFAULT_CONTEXTUAL_MENU") == "false") {
         contextMenu = false;
@@ -244,16 +521,18 @@ int main() {
         w.init("window.addEventListener('contextmenu', e => e.preventDefault());");
     }
 
-    HWND hwnd = nullptr;
 #ifdef _WIN32
+    HWND hwnd = nullptr;
     hwnd = (HWND)w.window();
-    
+
     // Load embedded icon and set it for the window taskbar/titlebar
     HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(101));
     if (hIcon) {
         SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
         SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
     }
+#else
+    void* hwnd = nullptr;
 #endif
 
     bool dragBackground = false;
@@ -366,6 +645,190 @@ int main() {
             }
         });
     )");
+
+    // ========================================================================
+    // Python Bridge — dynamic module import (public/private) + Python→JS
+    // ========================================================================
+
+    // Binding: callPythonModule — the low-level C++ binding that Python.Import uses internally.
+    // Receives a JSON string with {folder, module, function, args} from the JS Proxy API,
+    // unescapes it (webview.h double-wraps in a JSON array), extracts the fields, and
+    // delegates to CallPythonModule() which handles the actual Python import and function call.
+    w.bind("callPythonModule", [&](std::string req) -> std::string {
+        // webview.h wraps all binding arguments in a JSON array: ["escaped_string"]
+        std::string payload = req;
+        if (payload.length() > 2 && payload.front() == '[' && payload.back() == ']') {
+            payload = payload.substr(1, payload.length() - 2);
+        }
+        // The inner string is JSON-escaped (quotes become \"), so we need to unescape it
+        if (payload.length() >= 2 && payload.front() == '"' && payload.back() == '"') {
+            payload = payload.substr(1, payload.length() - 2);
+            std::string unescaped;
+            for (size_t i = 0; i < payload.size(); i++) {
+                if (payload[i] == '\\' && i + 1 < payload.size()) {
+                    if (payload[i+1] == '"') { unescaped += '"'; i++; }
+                    else if (payload[i+1] == '\\') { unescaped += '\\'; i++; }
+                    else unescaped += payload[i];
+                } else unescaped += payload[i];
+            }
+            payload = unescaped;
+        }
+
+        std::string folder = ExtractJsonValue(payload, "folder");
+        std::string module = ExtractJsonValue(payload, "module");
+        std::string function = ExtractJsonValue(payload, "function");
+
+        // Extract args (nested JSON — need depth-aware parsing)
+        std::string args = "{}";
+        size_t argsPos = payload.find("\"args\":");
+        if (argsPos != std::string::npos) {
+            size_t start = argsPos + 7;
+            if (start < payload.size()) {
+                if (payload[start] == '"') {
+                    // Quoted string — extract and unescape
+                    size_t end = start + 1;
+                    while (end < payload.size() && !(payload[end] == '"' && payload[end-1] != '\\')) end++;
+                    args = payload.substr(start + 1, end - start - 1);
+                    std::string ua;
+                    for (size_t i = 0; i < args.size(); i++) {
+                        if (args[i] == '\\' && i + 1 < args.size()) {
+                            if (args[i+1] == '"') { ua += '"'; i++; }
+                            else if (args[i+1] == '\\') { ua += '\\'; i++; }
+                            else ua += args[i];
+                        } else ua += args[i];
+                    }
+                    args = ua;
+                } else if (payload[start] == '{') {
+                    // Raw JSON object — match braces
+                    int depth = 0;
+                    size_t end = start;
+                    for (; end < payload.size(); end++) {
+                        if (payload[end] == '{') depth++;
+                        else if (payload[end] == '}') { depth--; if (depth == 0) { end++; break; } }
+                    }
+                    args = payload.substr(start, end - start);
+                }
+            }
+        }
+
+        return CallPythonModule(folder, module, function, args);
+    });
+
+    // Binding: __bridgeReturn — internal callback used by bridge.call_js().
+    // When Python calls call_js("expr"), the C++ layer dispatches JS that evaluates the
+    // expression and calls __bridgeReturn({id, result}) with the result. This binding
+    // receives that callback, extracts the request ID and result, stores it in g_js_results,
+    // and signals the condition variable so the waiting Python thread can pick it up.
+    w.bind("__bridgeReturn", [&](std::string req) -> std::string {
+        std::string payload = req;
+        if (payload.length() > 2 && payload.front() == '[' && payload.back() == ']') {
+            payload = payload.substr(1, payload.length() - 2);
+        }
+        // Unescape JSON string
+        if (payload.length() >= 2 && payload.front() == '"' && payload.back() == '"') {
+            payload = payload.substr(1, payload.length() - 2);
+            std::string unescaped;
+            for (size_t i = 0; i < payload.size(); i++) {
+                if (payload[i] == '\\' && i + 1 < payload.size()) {
+                    if (payload[i+1] == '"') { unescaped += '"'; i++; }
+                    else if (payload[i+1] == '\\') { unescaped += '\\'; i++; }
+                    else unescaped += payload[i];
+                } else unescaped += payload[i];
+            }
+            payload = unescaped;
+        }
+
+        int id = -1;
+        std::string result;
+
+        size_t idPos = payload.find("\"id\":");
+        if (idPos != std::string::npos) {
+            try { id = std::stoi(payload.substr(idPos + 5)); } catch(...) {}
+        }
+
+        size_t resPos = payload.find("\"result\":");
+        if (resPos != std::string::npos) {
+            size_t start = resPos + 9;
+            if (start < payload.size() && payload[start] == '"') {
+                size_t end = payload.find('"', start + 1);
+                if (end != std::string::npos) result = payload.substr(start + 1, end - start - 1);
+            } else if (start < payload.size()) {
+                size_t end = payload.find_first_of(",}", start);
+                if (end != std::string::npos) result = payload.substr(start, end - start);
+            }
+        }
+
+        size_t errPos = payload.find("\"error\":");
+        if (errPos != std::string::npos) {
+            size_t start = errPos + 8;
+            if (start < payload.size() && payload[start] == '"') {
+                size_t end = payload.find('"', start + 1);
+                if (end != std::string::npos) result = "ERROR:" + payload.substr(start + 1, end - start - 1);
+            }
+        }
+
+        if (id >= 0) {
+            std::lock_guard<std::mutex> lock(g_js_mutex);
+            g_js_results[id] = result;
+            g_js_cv.notify_all();
+        }
+        return "";
+    });
+
+    // Inject the Python.Import API into every page loaded by the webview.
+    // This creates window.Python.Import.Public() and window.Python.Import.Private() which
+    // return ES6 Proxy objects. When you access any property on a Proxy (e.g. .generate_greeting),
+    // it returns a function that sends a callPythonModule request to C++. The function returns
+    // a Promise that resolves with the Python return value.
+    //
+    // Usage:  const utils = Python.Import.Public('utils.py');
+    //         const result = await utils.generate_greeting({ name: 'Alice' });
+    w.init(R"(
+        window.Python = {
+            Import: {
+                Public: function(filename) {
+                    var moduleName = filename.replace(/\.py$/, '');
+                    return new Proxy({}, {
+                        get: function(target, funcName) {
+                            if (funcName === 'then' || funcName === 'catch' || funcName === 'toJSON' || funcName === 'valueOf' || funcName === 'toString' || typeof funcName === 'symbol') return undefined;
+                            return function(args) {
+                                var argsObj = (typeof args === 'object' && args !== null) ? args : {};
+                                return window.callPythonModule(JSON.stringify({
+                                    folder: 'public',
+                                    module: moduleName,
+                                    function: funcName,
+                                    args: JSON.stringify(argsObj)
+                                })).then(function(res) {
+                                    try { return JSON.parse(res); } catch(e) { return res; }
+                                });
+                            };
+                        }
+                    });
+                },
+                Private: function(filename) {
+                    var moduleName = filename.replace(/\.py$/, '');
+                    return new Proxy({}, {
+                        get: function(target, funcName) {
+                            if (funcName === 'then' || funcName === 'catch' || funcName === 'toJSON' || funcName === 'valueOf' || funcName === 'toString' || typeof funcName === 'symbol') return undefined;
+                            return function(args) {
+                                var argsObj = (typeof args === 'object' && args !== null) ? args : {};
+                                return window.callPythonModule(JSON.stringify({
+                                    folder: 'private',
+                                    module: moduleName,
+                                    function: funcName,
+                                    args: JSON.stringify(argsObj)
+                                })).then(function(res) {
+                                    try { return JSON.parse(res); } catch(e) { return res; }
+                                });
+                            };
+                        }
+                    });
+                }
+            }
+        };
+    )");
+
+    // ========================================================================
 
     if (!hideTerminal) {
         std::cout << "Loading Interface..." << std::endl;

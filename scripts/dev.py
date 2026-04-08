@@ -13,7 +13,7 @@ except ImportError:
     run_cmake_build = lambda: subprocess.run(['cmake', '--build', 'build'])
 
 # Directories and files to watch for changes
-WATCH_PATHS = ['engine', 'server', 'ui', 'properties.config', 'CMakeLists.txt']
+WATCH_PATHS = ['engine', 'server', 'ui', 'public', 'private', 'properties.config', 'CMakeLists.txt']
 BUILD_CMD = ['cmake', '--build', 'build']
 
 def get_exe_path():
