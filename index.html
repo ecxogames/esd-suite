@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESDK - By Ecxo Software</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="shortcut icon" href="icon.ico" type="image/x-icon">
+</head>
+<body class="bg-black text-white min-h-screen flex flex-col">
+    <!-- Navigation -->
+    <nav class="flex flex-row items-center justify-between px-6 md:px-12 py-4 border-b border-white/20 bg-black text-white">
+        <div class="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-blue-500" viewBox="0 -960 960 960" fill="currentColor">
+                <path d="M320-240 80-480l240-240 57 57-184 183 183 183-56 57Zm320 0-57-57 184-183-183-183 56-57 240 240-240 240Z"/>
+            </svg>
+            <h1 class="text-xl md:text-2xl font-bold">ESDK</h1>
+        </div>
+        <div class="flex items-center gap-4 md:gap-6">
+            <a href="#" class="text-sm md:text-base hover:text-blue-400 transition-colors">Home</a>
+            <a href="documentation/get-started/index.html" class="text-sm md:text-base hover:text-blue-400 transition-colors">Documentation</a>
+            <a href="https://github.com/ecxogames/esdk" target="_blank" class="text-sm md:text-base hover:text-blue-400 transition-colors">GitHub</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="flex flex-col items-center justify-center px-6 py-20 md:py-32 text-center flex-grow">
+        <div class="max-w-4xl">
+            <h2 class="text-4xl md:text-6xl font-bold mb-6">Build Native Apps with Web UI</h2>
+            <p class="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+                ESDK is an open-source framework by Ecxo Software that empowers you to create blazing-fast, native desktop applications using HTML, CSS, and modern web technologies powered by a C++ core.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="documentation/get-started/index.html" class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors text-center inline-block">
+                    Get Started
+                </a>
+                <a href="https://ecxogames.ca/" target="_blank" class="px-8 py-3 bg-transparent border border-white hover:bg-white/10 text-white font-semibold rounded transition-colors text-center inline-block">
+                    Learn more about us
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="px-6 md:px-12 py-16 md:py-24 bg-white/5">
+        <div class="max-w-7xl mx-auto">
+            <h3 class="text-3xl md:text-4xl font-bold text-center mb-12">Why Choose ESDK?</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                <!-- Feature 1 -->
+                <div class="border border-white/20 rounded-lg p-6 hover:bg-white/5 transition-all hover:border-blue-500/50">
+                    <div class="flex items-center gap-3 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-blue-400" viewBox="0 -960 960 960" fill="currentColor">
+                            <path d="M480-120 200-272v-240L40-600l440-240 440 240-160 88v240L480-120Zm0-151 200-108v-151L480-422 280-530v151l200 108Zm0-323 274-150-274-150-274 150 274 150Z"/>
+                        </svg>
+                        <h4 class="text-xl font-semibold">Native Performance</h4>
+                    </div>
+                    <p class="text-gray-300">Powered by a robust C++ backing, ensuring your desktop applications remain lightweight, incredibly fast, and memory-efficient.</p>
+                </div>
+                <!-- Feature 2 -->
+                <div class="border border-white/20 rounded-lg p-6 hover:bg-white/5 transition-all hover:border-blue-500/50">
+                    <div class="flex items-center gap-3 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-purple-400" viewBox="0 -960 960 960" fill="currentColor">
+                            <path d="M160-120q-33 0-56.5-23.5T80-200v-440q0-33 23.5-56.5T160-720h160v-80q0-33 23.5-56.5T400-880h160q33 0 56.5 23.5T640-800v80h160q33 0 56.5 23.5T880-640v440q0 33-23.5 56.5T800-120H160Zm0-80h640v-440H160v440Zm240-520h160v-80H400v80ZM160-200v-440 440Z"/>
+                        </svg>
+                        <h4 class="text-xl font-semibold">Web Technologies</h4>
+                    </div>
+                    <p class="text-gray-300">Design your UI exactly how you want it using simple html, javascript, and CSS.</p>
+                </div>
+                <!-- Feature 3 -->
+                <div class="border border-white/20 rounded-lg p-6 hover:bg-white/5 transition-all hover:border-blue-500/50">
+                    <div class="flex items-center gap-3 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-emerald-400" viewBox="0 -960 960 960" fill="currentColor">
+                            <path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Z"/>
+                        </svg>
+                        <h4 class="text-xl font-semibold">Python-powered algorithms</h4>
+                    </div>
+                    <p class="text-gray-300">Code your local backend logic in Python for seamless integration with your frontend.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="px-6 md:px-12 py-8 border-t border-white/20 mt-auto">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" viewBox="0 -960 960 960" fill="currentColor">
+                    <path d="M320-240 80-480l240-240 57 57-184 183 183 183-56 57Zm320 0-57-57 184-183-183-183 56-57 240 240-240 240Z"/>
+                </svg>
+                <span class="font-semibold">ESDK</span>
+            </div>
+            <div class="flex items-center gap-6 text-sm text-gray-400">
+                <span>© 2026 Ecxo Software.</span>
+                <a href="https://ecxogames.ca/" target="_blank" class="hover:text-white transition-colors">More about us</a>
+                <a href="documentation/get-started/index.html" class="hover:text-white transition-colors">Documentation</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

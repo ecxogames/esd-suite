@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Started - ESDK Documentation</title>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    typography: {
+                        DEFAULT: {
+                            css: {
+                                color: '#d1d5db',
+                                a: { color: '#60a5fa', '&:hover': { color: '#93c5fd' } },
+                                h1: { color: '#ffffff' },
+                                h2: { color: '#ffffff' },
+                                h3: { color: '#ffffff' },
+                                h4: { color: '#ffffff' },
+                                strong: { color: '#ffffff' },
+                                code: { color: '#93c5fd', backgroundColor: '#1f2937', padding: '0.2em 0.4em', borderRadius: '0.25rem', fontWeight: '400' },
+                                'code::before': { content: '""' },
+                                'code::after': { content: '""' },
+                                pre: { backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.1)' }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for a better look */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        
+        .prose pre { background-color: #111; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .prose code { color: #60a5fa; }
+    </style>
+</head>
+<body class="bg-black text-white min-h-screen flex flex-col">
+    <!-- Navigation -->
+    <nav class="flex flex-row items-center justify-between px-6 md:px-12 py-4 border-b border-white/20 bg-black text-white sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-blue-500" viewBox="0 -960 960 960" fill="currentColor">
+                <path d="M320-240 80-480l240-240 57 57-184 183 183 183-56 57Zm320 0-57-57 184-183-183-183 56-57 240 240-240 240Z"/>
+            </svg>
+            <h1 class="text-xl md:text-2xl font-bold">ESDK</h1>
+        </div>
+        <div class="flex items-center gap-4 md:gap-6">
+            <a href="../../index.html" class="text-sm md:text-base hover:text-blue-400 transition-colors">Home</a>
+            <a href="index.html" class="text-sm md:text-base text-blue-400 font-semibold transition-colors">Documentation</a>
+            <a href="https://github.com/ecxogames/esdk" target="_blank" class="text-sm md:text-base hover:text-blue-400 transition-colors">GitHub</a>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <div class="flex flex-col md:flex-row flex-grow max-w-7xl mx-auto w-full">
+        
+        <!-- Sidebar -->
+        <aside class="w-full md:w-64 flex-shrink-0 border-r border-white/10 p-6 space-y-8">
+            <div>
+                <h3 class="font-bold text-lg mb-4 text-gray-200">Documentation</h3>
+                <ul class="space-y-3">
+                    <li><a href="index.html" class="text-blue-400 font-medium hover:text-blue-300 transition-colors block">Getting Started</a></li>
+                    <li><a href="../building/index.html" class="text-gray-400 hover:text-white transition-colors block">Building & Distributing</a></li>
+                    <li><a href="../ui-development/index.html" class="text-gray-400 hover:text-white transition-colors block">UI Development</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Documentation Content -->
+        <main class="flex-grow p-6 md:p-12 max-w-4xl">
+            <div class="prose prose-invert max-w-none">
+<h1>Getting Started with ESDK</h1>
+<p>Welcome to the Ecxo Softwares Development (ESD) Suite! This framework is a cross-platform desktop application engine that bridges C++, Python, and JavaScript.</p>
+<h2>Architecture Overview</h2>
+<p>The application is built on three core pillars:
+1. <strong>C++ (Engine Layer):</strong> Handles native system interactions, window creation, and embeds both the webview and the Python runtime.
+2. <strong>Python (Backend Layer):</strong> Serves as the application's backend logic, scripting engine, and AI integration point.
+3. <strong>JavaScript/HTML/CSS (Frontend Layer):</strong> Powers the user interface, rendering inside the embedded webview.</p>
+<h2>Directory Structure</h2>
+<ul>
+<li><code>/engine/</code> - Core C++ runtime code (Entry point, window creation, webview integration).</li>
+<li><code>/server/</code> - Python backend logic. Treated as private during compilation.</li>
+<li><code>/ui/</code> - User interface code (HTML/CSS/JS entry points).</li>
+<li><code>/public/</code> - Shared assets accessible by all layers.</li>
+<li><code>/private/</code> - Restricted code (C++, JS, Python) accessible only via secure imports.</li>
+<li><code>/scripts/</code> - Utility scripts for development and building.</li>
+</ul>
+<h2>Build Requirements</h2>
+<div class="my-6">
+    <a href="https://github.com/ecxogames/esdk/releases" target="_blank" class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors no-underline">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 -960 960 960" fill="currentColor">
+            <path d="M480-320 280-520l56-58 104 104v-326h80v326l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z"/>
+        </svg>
+        Download Latest Release on GitHub
+    </a>
+</div>
+<p>To build the prototype, you need:
+- CMake (3.14+)
+- A C++ Compiler (MSVC on Windows, Clang/GCC on macOS/Linux)
+- Python 3 (installed on the system with development headers/libs)</p>
+<h2>Setting Up the Prototype</h2>
+<h3>1. Run Setup</h3>
+<p>You have to install all the dependencies, but don't worry, the <a href="/scripts/setup.py"><code>setup.py</code></a> script does everything for you:</p>
+<pre><code class="language-bash">python scripts/setup.py
+</code></pre>
+<h3>2. Build</h3>
+<p>To compile the C++ engine layer, run the <a href="/scripts/build.py"><code>build.py</code></a> script:</p>
+<pre><code class="language-bash">python scripts/build.py
+</code></pre>
+<h3>3. Run the Application</h3>
+<p>Start testing the program by running the <a href="/scripts/dev.py"><code>dev.py</code></a> script, which will launch the application in development mode:</p>
+<pre><code class="language-bash">python scripts/dev.py
+</code></pre>
+<h2>Next Steps</h2>
+<p>Now you are ready to start developing your very own software using the ESDK! The application will launch with a simple UI, and you can begin customizing the frontend and backend logic as needed.</p>
+<p>For more detailed documentation on how to use the API, integrate AI features, and customize the UI, please refer to the <a href="api-docs.md">API Documentation</a> in the <code>documentation</code> folder of this project or visit the <a href="https://esde.ecxogames.ca/">ESDK's Website</a>.</p>
+</div>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="px-6 md:px-12 py-8 border-t border-white/20 mt-auto">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" viewBox="0 -960 960 960" fill="currentColor">
+                    <path d="M320-240 80-480l240-240 57 57-184 183 183 183-56 57Zm320 0-57-57 184-183-183-183 56-57 240 240-240 240Z"/>
+                </svg>
+                <span class="font-semibold">ESDK</span>
+            </div>
+            <div class="flex items-center gap-6 text-sm text-gray-400">
+                <span>© 2026 Ecxo Software.</span>
+                <a href="https://ecxogames.ca/" target="_blank" class="hover:text-white transition-colors">More about us</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
