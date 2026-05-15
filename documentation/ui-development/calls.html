@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calls Reference - ESDK Documentation</title>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    typography: {
+                        DEFAULT: {
+                            css: {
+                                color: '#d1d5db',
+                                a: { color: '#60a5fa', '&:hover': { color: '#93c5fd' } },
+                                h1: { color: '#ffffff' },
+                                h2: { color: '#ffffff' },
+                                h3: { color: '#ffffff' },
+                                h4: { color: '#ffffff' },
+                                strong: { color: '#ffffff' },
+                                code: { color: '#93c5fd', backgroundColor: '#1f2937', padding: '0.2em 0.4em', borderRadius: '0.25rem', fontWeight: '400' },
+                                'code::before': { content: '""' },
+                                'code::after': { content: '""' },
+                                pre: { backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.1)' }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        .prose pre { background-color: #111; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .prose code { color: #60a5fa; }
+
+        .call-card {
+            background: #0d0d0d;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 20px 24px;
+            margin: 20px 0;
+        }
+        .call-signature {
+            font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+            font-size: 15px;
+            color: #93c5fd;
+            margin: 0 0 8px;
+            font-weight: 600;
+        }
+        .call-returns {
+            display: inline-block;
+            font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: rgba(168,85,247,0.15);
+            border: 1px solid rgba(168,85,247,0.35);
+            color: #d8b4fe;
+            margin-bottom: 10px;
+        }
+        .call-desc {
+            color: #9ca3af;
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 0;
+        }
+        .param-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+        .param-table th { text-align: left; padding: 6px 10px; color: #6b7280; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid rgba(255,255,255,0.07); }
+        .param-table td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
+        .param-table tr:last-child td { border-bottom: none; }
+        .param-name { font-family: monospace; color: #fbbf24; }
+        .param-type { font-family: monospace; color: #60a5fa; }
+        .group-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #4b5563;
+            margin: 36px 0 4px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+    </style>
+</head>
+<body class="bg-black text-white min-h-screen flex flex-col">
+    <nav class="flex flex-row items-center justify-between px-6 md:px-12 py-4 border-b border-white/20 bg-black text-white sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-blue-500" viewBox="0 -960 960 960" fill="currentColor">
+                <path d="M320-240 80-480l240-240 57 57-184 183 183 183-56 57Zm320 0-57-57 184-183-183-183 56-57 240 240-240 240Z"/>
+            </svg>
+            <h1 class="text-xl md:text-2xl font-bold">ESDK</h1>
+        </div>
+        <div class="flex items-center gap-4 md:gap-6">
+            <a href="../../index.html" class="text-sm md:text-base hover:text-blue-400 transition-colors">Home</a>
+            <a href="../get-started/index.html" class="text-sm md:text-base text-blue-400 font-semibold transition-colors">Documentation</a>
+            <a href="https://github.com/ecxogames/esdk" target="_blank" class="text-sm md:text-base hover:text-blue-400 transition-colors">GitHub</a>
+        </div>
+    </nav>
+
+    <div class="flex flex-col md:flex-row flex-grow max-w-7xl mx-auto w-full">
+        <aside class="w-full md:w-64 flex-shrink-0 border-r border-white/10 p-6 space-y-8">
+            <div>
+                <h3 class="font-bold text-lg mb-4 text-gray-200">Documentation</h3>
+                <ul class="space-y-3">
+                    <li><a href="../get-started/index.html" class="text-gray-400 hover:text-white transition-colors block">Getting Started</a></li>
+                    <li><a href="../building/index.html" class="text-gray-400 hover:text-white transition-colors block">Building &amp; Distributing</a></li>
+                    <li><a href="index.html" class="text-gray-400 hover:text-white transition-colors block">UI Development</a></li>
+                    <li><a href="modals.html" class="text-gray-400 hover:text-white transition-colors block">Custom Modals</a></li>
+                    <li><a href="calls.html" class="text-blue-400 font-medium hover:text-blue-300 transition-colors block">Calls Reference</a></li>
+                </ul>
+            </div>
+            <div>
+                <h3 class="font-bold text-sm uppercase tracking-widest mb-4 text-gray-500">Backend Development</h3>
+                <ul class="space-y-3">
+                    <li><a href="../development/backend.html" class="text-gray-400 hover:text-white transition-colors block">Server Layer</a></li>
+                    <li><a href="../development/public.html" class="text-gray-400 hover:text-white transition-colors block">Public Modules</a></li>
+                    <li><a href="../development/private.html" class="text-gray-400 hover:text-white transition-colors block">Private Modules</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <main class="flex-grow p-6 md:p-12 max-w-4xl">
+            <div class="prose prose-invert max-w-none">
+
+<h1>Calls Reference</h1>
+<p>ESDK exposes a set of native JavaScript bindings that let your frontend HTML control the OS window and communicate with the C++ and Python layers. All bindings are available globally on the <code>window</code> object and are injected before <code>window.onload</code> fires.</p>
+
+            </div>
+
+            <!-- ── Window Control ── -->
+            <p class="group-label">Window Control</p>
+
+            <div class="call-card">
+                <p class="call-signature">windowClose()</p>
+                <span class="call-returns">returns: void</span>
+                <p class="call-desc">Posts <code>WM_CLOSE</code> to the native window handle, triggering the standard OS close flow (prompts the user if the app intercepts it). Equivalent to clicking the window's &times; button.</p>
+<pre style="display:none"><code class="language-javascript">// Close button in a custom titlebar
+document.getElementById('btn-close').addEventListener('click', function () {
+    if (window.windowClose) window.windowClose();
+});
+</code></pre>
+            </div>
+
+            <div class="call-card">
+                <p class="call-signature">windowMinimize()</p>
+                <span class="call-returns">returns: void</span>
+                <p class="call-desc">Minimizes the app window to the taskbar. Has no effect if the window style does not include <code>WS_MINIMIZEBOX</code> (controlled by <code>CAN_MINIMIZE</code> in <code>properties.config</code>).</p>
+<pre style="display:none"><code class="language-javascript">if (window.windowMinimize) window.windowMinimize();
+</code></pre>
+            </div>
+
+            <div class="call-card">
+                <p class="call-signature">windowMaximize()</p>
+                <span class="call-returns">returns: void</span>
+                <p class="call-desc">Toggles the window between <strong>maximized</strong> and <strong>restored</strong> states. If the window is currently maximized, calling this restores it to its previous size and position.</p>
+<pre style="display:none"><code class="language-javascript">// Toggle button
+document.getElementById('btn-maximize').addEventListener('click', function () {
+    if (window.windowMaximize) window.windowMaximize();
+});
+</code></pre>
+            </div>
+
+            <div class="call-card">
+                <p class="call-signature">dragWindow()</p>
+                <span class="call-returns">returns: void</span>
+                <p class="call-desc">Initiates a native window drag. Bind it to <code>onmousedown</code> on any element you want to act as a drag handle (typically a custom titlebar region). The drag ends automatically when the mouse button is released.</p>
+<pre style="display:none"><code class="language-html">&lt;!-- Drag region in a custom titlebar --&gt;
+&lt;div class="titlebar-drag"
+     onmousedown="if(window.dragWindow) window.dragWindow()"
+     style="position:absolute;inset:0;z-index:0;cursor:move;"&gt;
+&lt;/div&gt;
+</code></pre>
+            </div>
+
+            <!-- ── Modal System ── -->
+            <p class="group-label">Modal System</p>
+
+            <div class="call-card">
+                <p class="call-signature">openModal(name)</p>
+                <span class="call-returns">returns: Promise&lt;any&gt;</span>
+                <p class="call-desc">Opens <code>ui/modals/&lt;name&gt;.html</code> as a new native OS window on its own thread. The Promise resolves when the modal calls <code>closeModal(value)</code>. If the modal file is not found, the Promise resolves with <code>null</code>.</p>
+                <table class="param-table">
+                    <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+                    <tbody>
+                        <tr><td class="param-name">name</td><td class="param-type">string</td><td>Name of the modal file without the <code>.html</code> extension (e.g. <code>"alert"</code>, <code>"prompt"</code>).</td></tr>
+                    </tbody>
+                </table>
+<pre style="display:none"><code class="language-javascript">// Simple usage
+await window.openModal('alert');
+
+// With a return value
+const result = await window.openModal('prompt');
+if (result !== null) {
+    console.log('User entered:', result);
+}
+
+// Confirm dialog
+const confirmed = await window.openModal('confirm-delete');
+if (confirmed) deleteItem();
+</code></pre>
+            </div>
+
+            <div class="call-card">
+                <p class="call-signature">closeModal(value)</p>
+                <span class="call-returns">modal-only · returns: void</span>
+                <p class="call-desc">Closes the current modal OS window and resolves the parent window's Promise with <code>value</code>. Only available inside a modal's <code>&lt;script&gt;</code> block — it is not a global binding in the main window.</p>
+                <table class="param-table">
+                    <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+                    <tbody>
+                        <tr><td class="param-name">value</td><td class="param-type">any</td><td>The value forwarded to <code>openModal().then()</code>. Pass <code>null</code> to indicate cancellation.</td></tr>
+                    </tbody>
+                </table>
+<pre style="display:none"><code class="language-javascript">// Inside ui/modals/my-modal.html &lt;script&gt;
+function Submit() {
+    var text = document.getElementById('input').value;
+    closeModal(text);        // resolves with the user's text
+}
+function Cancel() {
+    closeModal(null);        // resolves with null
+}
+</code></pre>
+            </div>
+
+            <!-- ── Backend Bridge ── -->
+            <p class="group-label">Backend Bridge</p>
+
+            <div class="call-card">
+                <p class="call-signature">invokeBridge(payload)</p>
+                <span class="call-returns">returns: Promise&lt;object&gt;</span>
+                <p class="call-desc">Sends a JSON payload through the C++ bridge to <code>server/api.py</code>'s <code>handle_message()</code> function and returns the Python response as a parsed object. The <code>action</code> field is used by the server to route the request.</p>
+                <table class="param-table">
+                    <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+                    <tbody>
+                        <tr><td class="param-name">payload</td><td class="param-type">object</td><td>A JS object with at minimum an <code>action</code> field. Additional fields are passed to the Python handler.</td></tr>
+                    </tbody>
+                </table>
+<pre style="display:none"><code class="language-javascript">// Ping the backend
+const response = await window.invokeBridge({ action: 'ping', data: 'hello' });
+console.log(response.result); // "Pong! I received: hello"
+
+// Call a public module
+const res = await window.invokeBridge({ action: 'public_demo', name: 'Xavier' });
+if (res.status === 'ok') {
+    console.log(res.result);
+}
+</code></pre>
+            </div>
+
+            <!-- ── Navigation ── -->
+            <p class="group-label">Navigation &amp; Links</p>
+
+            <div class="call-card">
+                <p class="call-signature">openExternalLink(url)</p>
+                <span class="call-returns">returns: void</span>
+                <p class="call-desc">Opens a URL in the user's default system browser via <code>ShellExecuteA</code>. All <code>&lt;a href="https://..."&gt;</code> clicks in the webview are intercepted automatically and routed through this binding — you don't need to call it manually for standard links.</p>
+                <table class="param-table">
+                    <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+                    <tbody>
+                        <tr><td class="param-name">url</td><td class="param-type">string</td><td>A fully-qualified <code>http://</code> or <code>https://</code> URL.</td></tr>
+                    </tbody>
+                </table>
+<pre style="display:none"><code class="language-javascript">// All <a href> clicks are intercepted automatically.
+// Call directly only for programmatic navigation:
+if (window.openExternalLink) {
+    window.openExternalLink('https://ecxogames.ca');
+}
+</code></pre>
+            </div>
+
+            <div class="prose prose-invert max-w-none mt-10">
+                <h2>Quick Reference</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Call</th>
+                            <th>Available In</th>
+                            <th>Returns</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>windowClose()</code></td><td>Main window</td><td>void</td><td>Posts WM_CLOSE</td></tr>
+                        <tr><td><code>windowMinimize()</code></td><td>Main window</td><td>void</td><td>Requires CAN_MINIMIZE</td></tr>
+                        <tr><td><code>windowMaximize()</code></td><td>Main window</td><td>void</td><td>Toggles maximize/restore</td></tr>
+                        <tr><td><code>dragWindow()</code></td><td>Main window &amp; modals</td><td>void</td><td>Bind to onmousedown</td></tr>
+                        <tr><td><code>openModal(name)</code></td><td>Main window</td><td>Promise&lt;any&gt;</td><td>Opens native OS window</td></tr>
+                        <tr><td><code>closeModal(value)</code></td><td>Modal windows only</td><td>void</td><td>Resolves parent Promise</td></tr>
+                        <tr><td><code>invokeBridge(payload)</code></td><td>Main window</td><td>Promise&lt;object&gt;</td><td>Calls server/api.py</td></tr>
+                        <tr><td><code>openExternalLink(url)</code></td><td>Main window</td><td>void</td><td>Auto-wired to &lt;a href&gt;</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <footer class="px-6 md:px-12 py-8 border-t border-white/20 mt-auto">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" viewBox="0 -960 960 960" fill="currentColor">
+                    <path d="M320-240 80-480l240-240 57 57-184 183 183 183-56 57Zm320 0-57-57 184-183-183-183 56-57 240 240-240 240Z"/>
+                </svg>
+                <span class="font-semibold">ESDK</span>
+            </div>
+            <div class="flex items-center gap-6 text-sm text-gray-400">
+                <span>© 2026 Ecxo Software.</span>
+                <a href="https://ecxogames.ca/" target="_blank" class="hover:text-white transition-colors">More about us</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    <script>
+        require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+        require(['vs/editor/editor.main'], function () {
+            document.querySelectorAll('pre > code').forEach(function (codeEl) {
+                var pre = codeEl.parentElement;
+                var rawCode = codeEl.textContent.trim();
+                var m = codeEl.className.match(/language-(\w+)/);
+                var lang = m ? m[1] : 'plaintext';
+                var lineCount = rawCode.split('\n').length;
+                var height = Math.max(56, lineCount * 19 + 24);
+                var wrapper = document.createElement('div');
+                wrapper.style.cssText = 'height:' + height + 'px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;overflow:hidden;margin:12px 0;';
+                pre.parentNode.insertBefore(wrapper, pre);
+                pre.style.display = 'none';
+                monaco.editor.create(wrapper, {
+                    value: rawCode,
+                    language: lang,
+                    theme: 'vs-dark',
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    lineNumbers: 'on',
+                    renderLineHighlight: 'none',
+                    fontSize: 13,
+                    fontFamily: '"JetBrains Mono", "Fira Code", Consolas, monospace',
+                    scrollbar: { useShadows: false, verticalScrollbarSize: 8, horizontalScrollbarSize: 6 },
+                    wordWrap: 'off'
+                });
+            });
+        });
+    </script>
+</body>
+</html>

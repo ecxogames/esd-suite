@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UI Development - ESDK Documentation</title>
+    <title>Backend & Server Layer - ESDK Documentation</title>
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script>
         tailwind.config = {
@@ -31,12 +31,10 @@
         }
     </script>
     <style>
-        /* Custom scrollbar for a better look */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
-        
         .prose pre { background-color: #111; border: 1px solid rgba(255, 255, 255, 0.1); }
         .prose code { color: #60a5fa; }
     </style>
@@ -59,7 +57,7 @@
 
     <!-- Main Content Area -->
     <div class="flex flex-col md:flex-row flex-grow max-w-7xl mx-auto w-full">
-        
+
         <!-- Sidebar -->
         <aside class="w-full md:w-64 flex-shrink-0 border-r border-white/10 p-6 space-y-8">
             <div>
@@ -67,17 +65,17 @@
                 <ul class="space-y-3">
                     <li><a href="../get-started/index.html" class="text-gray-400 hover:text-white transition-colors block">Getting Started</a></li>
                     <li><a href="../building/index.html" class="text-gray-400 hover:text-white transition-colors block">Building & Distributing</a></li>
-                    <li><a href="index.html" class="text-blue-400 font-medium hover:text-blue-300 transition-colors block">UI Development</a></li>
-<li><a href="modals.html" class="text-gray-400 hover:text-white transition-colors block">Custom Modals</a></li>
-<li><a href="calls.html" class="text-gray-400 hover:text-white transition-colors block">Calls Reference</a></li>
+                    <li><a href="../ui-development/index.html" class="text-gray-400 hover:text-white transition-colors block">UI Development</a></li>
+<li><a href="../ui-development/modals.html" class="text-gray-400 hover:text-white transition-colors block">Custom Modals</a></li>
+<li><a href="../ui-development/calls.html" class="text-gray-400 hover:text-white transition-colors block">Calls Reference</a></li>
                 </ul>
             </div>
             <div>
                 <h3 class="font-bold text-sm uppercase tracking-widest mb-4 text-gray-500">Backend Development</h3>
                 <ul class="space-y-3">
-                    <li><a href="../development/backend.html" class="text-gray-400 hover:text-white transition-colors block">Server Layer</a></li>
-                    <li><a href="../development/public.html" class="text-gray-400 hover:text-white transition-colors block">Public Modules</a></li>
-                    <li><a href="../development/private.html" class="text-gray-400 hover:text-white transition-colors block">Private Modules</a></li>
+                    <li><a href="backend.html" class="text-blue-400 font-medium hover:text-blue-300 transition-colors block">Server Layer</a></li>
+                    <li><a href="public.html" class="text-gray-400 hover:text-white transition-colors block">Public Modules</a></li>
+                    <li><a href="private.html" class="text-gray-400 hover:text-white transition-colors block">Private Modules</a></li>
                 </ul>
             </div>
         </aside>
@@ -85,33 +83,104 @@
         <!-- Documentation Content -->
         <main class="flex-grow p-6 md:p-12 max-w-4xl">
             <div class="prose prose-invert max-w-none">
-<h1>UI Development: Navigation</h1>
-<p>The ESDK Framework uses a standard Webview for its frontend, meaning you can use standard web technologies (HTML, CSS, JavaScript) to build your pages.</p>
-<h2>1. Navigation Between Pages</h2>
-<p>Navigate using relative paths, evaluated from the currently loaded HTML file.</p>
-<p><strong>HTML Links:</strong></p>
-<pre><code class="language-html">&lt;a href=&quot;settings.html&quot;&gt;Go to Settings&lt;/a&gt;
+
+<h1>Backend & Server Layer</h1>
+<p>The server layer is the central entry point for all Python backend logic in an ESDK application. Every message sent from the JavaScript frontend passes through <code>server/api.py</code> before being routed to the appropriate module.</p>
+
+<h2>How the Bridge Works</h2>
+<p>ESDK connects the JavaScript UI to Python via a C++ bridge. The flow for every call is:</p>
+<pre><code>JavaScript (UI)
+    └─▶  window.invokeBridge({ action: "...", ...params })
+              │
+              ▼
+         C++ Engine (engine/main.cpp)
+              │  strips webview's JSON array wrapper
+              │  passes raw JSON string to Python
+              ▼
+         server/api.py  →  handle_message(message_str)
+              │
+              ├─▶  public/   (non-sensitive helpers)
+              └─▶  private/  (sensitive operations)
 </code></pre>
-<p><strong>JavaScript:</strong></p>
-<pre><code class="language-javascript">window.location.href = &quot;settings.html&quot;;
+<p>The C++ side returns whatever string Python returns, and the bridge resolves the JavaScript <code>Promise</code> with the parsed JSON object.</p>
+
+<h2>The <code>handle_message</code> Function</h2>
+<p><code>server/api.py</code> exports a single function that the engine calls for every bridge request:</p>
+<pre><code class="language-python">import json
+from public import utils
+from private import secret_processor
+
+def handle_message(message_str):
+    try:
+        req = json.loads(message_str)
+        action = req.get("action")
+
+        if action == "ping":
+            data = req.get("data", "")
+            return json.dumps({"status": "ok", "result": f"Pong! I received: {data}"})
+
+        elif action == "public_demo":
+            greeting = utils.generate_greeting(req.get("name", ""))
+            return json.dumps({"status": "ok", "result": greeting})
+
+        elif action == "private_demo":
+            result = secret_processor.process_secure_data(req.get("secret_data", ""))
+            return json.dumps({"status": "ok", "result": result})
+
+        return json.dumps({"status": "error", "reason": "Unknown action"})
+    except Exception as e:
+        return json.dumps({"status": "error", "reason": str(e)})
 </code></pre>
-<h2>2. Web Components</h2>
-<p>For custom tags with encapsulated styles, use native browser Web Components:</p>
-<pre><code class="language-html">&lt;script&gt;
-    class MyWidget extends HTMLElement {
-        connectedCallback() {
-            this.innerHTML = `&lt;div&gt;I am a custom widget!&lt;/div&gt;`;
+<p>Every response must be a valid JSON string. The convention is <code>{"status": "ok", "result": ...}</code> on success and <code>{"status": "error", "reason": "..."}</code> on failure.</p>
+
+<h2>Request & Response Format</h2>
+<h3>Request (JavaScript → Python)</h3>
+<p>Pass a plain JavaScript object to <code>invokeBridge</code>. It must contain an <code>action</code> string and any additional parameters your handler needs:</p>
+<pre><code class="language-javascript">window.invokeBridge({ action: "my_action", param1: "value", param2: 42 })
+</code></pre>
+<p>The C++ layer wraps this in a JSON array for transport and then strips the wrapper before handing the raw object string to Python. Python receives it as:</p>
+<pre><code class="language-json">{"action": "my_action", "param1": "value", "param2": 42}
+</code></pre>
+
+<h3>Response (Python → JavaScript)</h3>
+<p>Always return a <code>json.dumps</code> string. The bridge resolves the Promise with the parsed object, so in JavaScript <code>res</code> will be a plain object:</p>
+<pre><code class="language-javascript">window.invokeBridge({ action: "my_action", param1: "hello" })
+    .then(res => {
+        if (res.status === "ok") {
+            console.log(res.result);   // your return value
+        } else {
+            console.error(res.reason); // error message
         }
-    }
-    customElements.define('my-widget', MyWidget);
-&lt;/script&gt;
-&lt;my-widget&gt;&lt;/my-widget&gt;
+    })
+    .catch(err => console.error("Bridge error:", err));
 </code></pre>
-<h2>3. Best Practices</h2>
-<ul>
-<li><strong>Keep assets relative:</strong> Use <code>./</code> or <code>../</code> for images, CSS, and JS so they resolve properly anywhere.</li>
-</ul>
-</div>
+
+<h2>Adding a New Action</h2>
+<p>To expose new Python functionality to the UI, add an <code>elif</code> block inside <code>handle_message</code>:</p>
+<pre><code class="language-python">elif action == "get_version":
+    version = req.get("channel", "stable")
+    return json.dumps({"status": "ok", "result": f"1.0.0-{version}"})
+</code></pre>
+<p>Then call it from JavaScript:</p>
+<pre><code class="language-javascript">window.invokeBridge({ action: "get_version", channel: "beta" })
+    .then(res => console.log(res.result)); // "1.0.0-beta"
+</code></pre>
+<p>For anything beyond a few lines of logic, keep <code>handle_message</code> thin and delegate to a module in <code>public/</code> or <code>private/</code>.</p>
+
+<h2>Routing to Modules</h2>
+<p>Import your modules at the top of <code>server/api.py</code> and call them inside the relevant action handler:</p>
+<pre><code class="language-python">from public import utils          # non-sensitive helpers
+from private import secret_processor  # sensitive operations
+
+elif action == "greet":
+    return json.dumps({"status": "ok", "result": utils.generate_greeting(req.get("name"))})
+
+elif action == "save":
+    return json.dumps({"status": "ok", "result": secret_processor.process_secure_data(req.get("data"))})
+</code></pre>
+<p>See <a href="public.html">Public Modules</a> and <a href="private.html">Private Modules</a> for guidance on what belongs in each layer.</p>
+
+            </div>
         </main>
     </div>
 

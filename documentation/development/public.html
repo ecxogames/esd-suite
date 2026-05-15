@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UI Development - ESDK Documentation</title>
+    <title>Public Modules - ESDK Documentation</title>
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script>
         tailwind.config = {
@@ -31,12 +31,10 @@
         }
     </script>
     <style>
-        /* Custom scrollbar for a better look */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #000; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #555; }
-        
         .prose pre { background-color: #111; border: 1px solid rgba(255, 255, 255, 0.1); }
         .prose code { color: #60a5fa; }
     </style>
@@ -59,7 +57,7 @@
 
     <!-- Main Content Area -->
     <div class="flex flex-col md:flex-row flex-grow max-w-7xl mx-auto w-full">
-        
+
         <!-- Sidebar -->
         <aside class="w-full md:w-64 flex-shrink-0 border-r border-white/10 p-6 space-y-8">
             <div>
@@ -67,17 +65,17 @@
                 <ul class="space-y-3">
                     <li><a href="../get-started/index.html" class="text-gray-400 hover:text-white transition-colors block">Getting Started</a></li>
                     <li><a href="../building/index.html" class="text-gray-400 hover:text-white transition-colors block">Building & Distributing</a></li>
-                    <li><a href="index.html" class="text-blue-400 font-medium hover:text-blue-300 transition-colors block">UI Development</a></li>
-<li><a href="modals.html" class="text-gray-400 hover:text-white transition-colors block">Custom Modals</a></li>
-<li><a href="calls.html" class="text-gray-400 hover:text-white transition-colors block">Calls Reference</a></li>
+                    <li><a href="../ui-development/index.html" class="text-gray-400 hover:text-white transition-colors block">UI Development</a></li>
+<li><a href="../ui-development/modals.html" class="text-gray-400 hover:text-white transition-colors block">Custom Modals</a></li>
+<li><a href="../ui-development/calls.html" class="text-gray-400 hover:text-white transition-colors block">Calls Reference</a></li>
                 </ul>
             </div>
             <div>
                 <h3 class="font-bold text-sm uppercase tracking-widest mb-4 text-gray-500">Backend Development</h3>
                 <ul class="space-y-3">
-                    <li><a href="../development/backend.html" class="text-gray-400 hover:text-white transition-colors block">Server Layer</a></li>
-                    <li><a href="../development/public.html" class="text-gray-400 hover:text-white transition-colors block">Public Modules</a></li>
-                    <li><a href="../development/private.html" class="text-gray-400 hover:text-white transition-colors block">Private Modules</a></li>
+                    <li><a href="backend.html" class="text-gray-400 hover:text-white transition-colors block">Server Layer</a></li>
+                    <li><a href="public.html" class="text-blue-400 font-medium hover:text-blue-300 transition-colors block">Public Modules</a></li>
+                    <li><a href="private.html" class="text-gray-400 hover:text-white transition-colors block">Private Modules</a></li>
                 </ul>
             </div>
         </aside>
@@ -85,33 +83,110 @@
         <!-- Documentation Content -->
         <main class="flex-grow p-6 md:p-12 max-w-4xl">
             <div class="prose prose-invert max-w-none">
-<h1>UI Development: Navigation</h1>
-<p>The ESDK Framework uses a standard Webview for its frontend, meaning you can use standard web technologies (HTML, CSS, JavaScript) to build your pages.</p>
-<h2>1. Navigation Between Pages</h2>
-<p>Navigate using relative paths, evaluated from the currently loaded HTML file.</p>
-<p><strong>HTML Links:</strong></p>
-<pre><code class="language-html">&lt;a href=&quot;settings.html&quot;&gt;Go to Settings&lt;/a&gt;
-</code></pre>
-<p><strong>JavaScript:</strong></p>
-<pre><code class="language-javascript">window.location.href = &quot;settings.html&quot;;
-</code></pre>
-<h2>2. Web Components</h2>
-<p>For custom tags with encapsulated styles, use native browser Web Components:</p>
-<pre><code class="language-html">&lt;script&gt;
-    class MyWidget extends HTMLElement {
-        connectedCallback() {
-            this.innerHTML = `&lt;div&gt;I am a custom widget!&lt;/div&gt;`;
-        }
-    }
-    customElements.define('my-widget', MyWidget);
-&lt;/script&gt;
-&lt;my-widget&gt;&lt;/my-widget&gt;
-</code></pre>
-<h2>3. Best Practices</h2>
+
+<h1>Public Modules</h1>
+<p>The <code>public/</code> directory is for Python code that provides general-purpose, non-sensitive helper logic. Functions here are safe to call from anywhere in the backend — they do not touch the file system, databases, credentials, or any other sensitive resource.</p>
+
+<h2>What Belongs in <code>public/</code></h2>
 <ul>
-<li><strong>Keep assets relative:</strong> Use <code>./</code> or <code>../</code> for images, CSS, and JS so they resolve properly anywhere.</li>
+    <li>String formatting and text processing helpers</li>
+    <li>Data transformation utilities (sorting, filtering, mapping)</li>
+    <li>Calls to public, unauthenticated external APIs</li>
+    <li>App metadata and configuration constants</li>
+    <li>Validation helpers (email format checks, length limits, etc.)</li>
 </ul>
-</div>
+<p>If your function touches the file system, a database, an API key, or any secret — move it to <a href="private.html"><code>private/</code></a> instead.</p>
+
+<h2>File Structure</h2>
+<pre><code>public/
+└── utils.py        ← default helpers module (extend this or add new files)
+</code></pre>
+<p>You can add as many <code>.py</code> files as you need. Each file becomes its own importable module (e.g. <code>public/formatter.py</code> is imported as <code>from public import formatter</code>).</p>
+
+<h2>The Default Module: <code>utils.py</code></h2>
+<p>The template ships with <code>public/utils.py</code> containing two example functions:</p>
+<pre><code class="language-python"># public/utils.py
+
+def generate_greeting(name):
+    if not name:
+        return "Hello, anonymous user!"
+    return f"Hello, {name}! Welcome to the ESD Suite Framework."
+
+def get_app_info():
+    return {
+        "version": "1.0.0",
+        "description": "Cross-platform runtime with embedded Python."
+    }
+</code></pre>
+<p><code>generate_greeting</code> is a simple text formatter — exactly the kind of logic that belongs in <code>public/</code>. <code>get_app_info</code> returns static metadata that the UI can display without any security concern.</p>
+
+<h2>Importing Public Modules in the Server</h2>
+<p>Import at the top of <code>server/api.py</code> and call inside an action handler:</p>
+<pre><code class="language-python">from public import utils
+
+def handle_message(message_str):
+    ...
+    elif action == "public_demo":
+        greeting = utils.generate_greeting(req.get("name", ""))
+        return json.dumps({"status": "ok", "result": greeting})
+</code></pre>
+<p>You can import multiple public modules in the same file:</p>
+<pre><code class="language-python">from public import utils
+from public import formatter
+from public import validators
+</code></pre>
+
+<h2>Adding a New Public Function</h2>
+<p><strong>Step 1</strong> — Add the function to an existing or new file inside <code>public/</code>:</p>
+<pre><code class="language-python"># public/utils.py
+
+def format_currency(amount, symbol="$"):
+    return f"{symbol}{amount:,.2f}"
+</code></pre>
+<p><strong>Step 2</strong> — Add an action handler in <code>server/api.py</code>:</p>
+<pre><code class="language-python">elif action == "format_currency":
+    amount = req.get("amount", 0)
+    result = utils.format_currency(amount)
+    return json.dumps({"status": "ok", "result": result})
+</code></pre>
+<p><strong>Step 3</strong> — Call it from JavaScript:</p>
+<pre><code class="language-javascript">window.invokeBridge({ action: "format_currency", amount: 1234.5 })
+    .then(res => console.log(res.result)); // "$1,234.50"
+</code></pre>
+
+<h2>Public vs. Private: Quick Reference</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Use <code>public/</code> for</th>
+            <th>Use <code>private/</code> for</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Text formatting</td>
+            <td>Database reads / writes</td>
+        </tr>
+        <tr>
+            <td>Generic data transforms</td>
+            <td>File system operations</td>
+        </tr>
+        <tr>
+            <td>Unauthenticated API calls</td>
+            <td>Authenticated / secret API calls</td>
+        </tr>
+        <tr>
+            <td>App constants and metadata</td>
+            <td>Encryption and hashing</td>
+        </tr>
+        <tr>
+            <td>Input validation helpers</td>
+            <td>Credential management</td>
+        </tr>
+    </tbody>
+</table>
+
+            </div>
         </main>
     </div>
 

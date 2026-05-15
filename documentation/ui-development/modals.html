@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Modals - ESDK Documentation</title>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    typography: {
+                        DEFAULT: {
+                            css: {
+                                color: '#d1d5db',
+                                a: { color: '#60a5fa', '&:hover': { color: '#93c5fd' } },
+                                h1: { color: '#ffffff' },
+                                h2: { color: '#ffffff' },
+                                h3: { color: '#ffffff' },
+                                h4: { color: '#ffffff' },
+                                strong: { color: '#ffffff' },
+                                code: { color: '#93c5fd', backgroundColor: '#1f2937', padding: '0.2em 0.4em', borderRadius: '0.25rem', fontWeight: '400' },
+                                'code::before': { content: '""' },
+                                'code::after': { content: '""' },
+                                pre: { backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.1)' }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        .prose pre { background-color: #111; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .prose code { color: #60a5fa; }
+    </style>
+</head>
+<body class="bg-black text-white min-h-screen flex flex-col">
+    <nav class="flex flex-row items-center justify-between px-6 md:px-12 py-4 border-b border-white/20 bg-black text-white sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-blue-500" viewBox="0 -960 960 960" fill="currentColor">
+                <path d="M320-240 80-480l240-240 57 57-184 183 183 183-56 57Zm320 0-57-57 184-183-183-183 56-57 240 240-240 240Z"/>
+            </svg>
+            <h1 class="text-xl md:text-2xl font-bold">ESDK</h1>
+        </div>
+        <div class="flex items-center gap-4 md:gap-6">
+            <a href="../../index.html" class="text-sm md:text-base hover:text-blue-400 transition-colors">Home</a>
+            <a href="../get-started/index.html" class="text-sm md:text-base text-blue-400 font-semibold transition-colors">Documentation</a>
+            <a href="https://github.com/ecxogames/esdk" target="_blank" class="text-sm md:text-base hover:text-blue-400 transition-colors">GitHub</a>
+        </div>
+    </nav>
+
+    <div class="flex flex-col md:flex-row flex-grow max-w-7xl mx-auto w-full">
+        <aside class="w-full md:w-64 flex-shrink-0 border-r border-white/10 p-6 space-y-8">
+            <div>
+                <h3 class="font-bold text-lg mb-4 text-gray-200">Documentation</h3>
+                <ul class="space-y-3">
+<li><a href="../get-started/index.html" class="text-gray-400 hover:text-white transition-colors block">Getting Started</a></li>
+<li><a href="../building/index.html" class="text-gray-400 hover:text-white transition-colors block">Building &amp; Distributing</a></li>
+<li><a href="index.html" class="text-gray-400 hover:text-white transition-colors block">UI Development</a></li>
+<li><a href="modals.html" class="text-blue-400 font-medium hover:text-blue-300 transition-colors block">Custom Modals</a></li>
+<li><a href="calls.html" class="text-gray-400 hover:text-white transition-colors block">Calls Reference</a></li>
+                </ul>
+            </div>
+            <div>
+                <h3 class="font-bold text-sm uppercase tracking-widest mb-4 text-gray-500">Backend Development</h3>
+                <ul class="space-y-3">
+<li><a href="../development/backend.html" class="text-gray-400 hover:text-white transition-colors block">Server Layer</a></li>
+<li><a href="../development/public.html" class="text-gray-400 hover:text-white transition-colors block">Public Modules</a></li>
+<li><a href="../development/private.html" class="text-gray-400 hover:text-white transition-colors block">Private Modules</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <main class="flex-grow p-6 md:p-12 max-w-4xl">
+            <div class="prose prose-invert max-w-none">
+
+<h1>Custom Modals</h1>
+<p>ESDK provides two complementary modal systems: <strong>HTML modals</strong> that open as real native OS windows, and <strong>native system dialogs</strong> called from Python. Both replace the default browser <code>alert()</code> / <code>prompt()</code> / <code>confirm()</code> with styled, controllable alternatives.</p>
+
+<h2>1. HTML Modals (Frontend)</h2>
+<p>HTML modals are template files stored in <code>ui/modals/</code>. When opened, the engine spawns a <strong>native OS window</strong> on its own thread — completely separate from the main app window. The modal can have a custom HTML titlebar (no OS chrome) or the standard OS titlebar, controlled by the <code>&lt;modal&gt;</code> and <code>&lt;titlebar&gt;</code> elements.</p>
+
+<h3>Calling a Modal from JavaScript</h3>
+<pre><code class="language-javascript">// Returns a Promise that resolves when the modal calls closeModal()
+window.openModal('alert').then(function (result) {
+    console.log('Modal closed with:', result);
+});
+
+// Or with async/await
+const result = await window.openModal('prompt');
+if (result !== null) {
+    console.log('User entered:', result);
+}
+</code></pre>
+
+<h3>Template File Format</h3>
+<p>Each modal lives in <code>ui/modals/{name}.html</code>. The outer <code>&lt;modal&gt;</code> element controls the OS window; inner sections define the content:</p>
+<pre><code class="language-html">&lt;modal width="420" height="240" blur="true" closeable="true" titlebar="true"&gt;
+
+    &lt;!-- Custom HTML titlebar (value="false" = no OS chrome) --&gt;
+    &lt;titlebar value="false" height="40"&gt;
+        &lt;div style="background:#111; display:flex; align-items:center; padding:0 14px; height:100%; color:#fff;"&gt;
+            My Dialog
+            &lt;button onclick="Close()" style="margin-left:auto;"&gt;&amp;times;&lt;/button&gt;
+        &lt;/div&gt;
+    &lt;/titlebar&gt;
+
+    &lt;!-- OS native titlebar (value="true") --&gt;
+    &lt;!-- &lt;titlebar value="true"&gt;&lt;/titlebar&gt; --&gt;
+
+    &lt;title&gt;&lt;value&gt;My Dialog&lt;/value&gt;&lt;/title&gt;
+
+    &lt;content&gt;
+        &lt;div style="padding:28px; text-align:center; color:#fff;"&gt;
+            &lt;h2&gt;Hello!&lt;/h2&gt;
+            &lt;button onclick="closeModal('ok')"&gt;OK&lt;/button&gt;
+        &lt;/div&gt;
+    &lt;/content&gt;
+
+    &lt;script&gt;
+        function Close() { closeModal(null); }
+    &lt;/script&gt;
+&lt;/modal&gt;
+</code></pre>
+
+<h4>&lt;modal&gt; attributes</h4>
+<table>
+    <thead><tr><th>Attribute</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+        <tr><td><code>width</code></td><td>number</td><td>Window width in logical pixels</td></tr>
+        <tr><td><code>height</code></td><td>number</td><td>Window height in logical pixels</td></tr>
+        <tr><td><code>blur</code></td><td>boolean</td><td>Dims and blurs the parent window while the modal is open</td></tr>
+        <tr><td><code>closeable</code></td><td>boolean</td><td>Whether the OS close button is enabled (native titlebar only)</td></tr>
+        <tr><td><code>titlebar</code></td><td>boolean</td><td>Presence of any titlebar (native or custom)</td></tr>
+    </tbody>
+</table>
+
+<h4>&lt;titlebar&gt; attributes</h4>
+<table>
+    <thead><tr><th>Attribute</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+        <tr><td><code>value</code></td><td><code>"false"</code> / <code>"true"</code></td><td><code>false</code> = custom HTML titlebar, no OS chrome; <code>true</code> = OS native titlebar</td></tr>
+        <tr><td><code>height</code></td><td>number</td><td>Height of the custom titlebar drag region in pixels (only when <code>value="false"</code>)</td></tr>
+    </tbody>
+</table>
+
+<h3>Rounded Corners</h3>
+<p>Frameless modals (custom titlebar) automatically inherit the <code>CORNER_RADIUS</code> value from <code>ui/modals/properties.config</code>. Set it there to apply rounded corners to all frameless modal windows.</p>
+<pre><code class="language-ini"># ui/modals/properties.config
+CORNER_RADIUS=20
+</code></pre>
+
+<h3>Built-in Modals</h3>
+<table>
+    <thead><tr><th>File</th><th>Purpose</th><th>Titlebar</th><th>Returns</th></tr></thead>
+    <tbody>
+        <tr><td><code>alert.html</code></td><td>Simple dismissal dialog</td><td>Custom HTML</td><td><code>null</code></td></tr>
+        <tr><td><code>prompt.html</code></td><td>Text input dialog</td><td>OS native</td><td>string or <code>null</code></td></tr>
+        <tr><td><code>custom.html</code></td><td>Blank starter template</td><td>OS native</td><td><code>true</code> / <code>false</code></td></tr>
+    </tbody>
+</table>
+
+<h3>Closing a Modal</h3>
+<p>Call <code>closeModal(value)</code> from inside a modal's <code>&lt;script&gt;</code> block. The value is forwarded to the parent's Promise. Pass <code>null</code> to indicate cancellation.</p>
+<pre><code class="language-javascript">function Submit() {
+    var input = document.getElementById('modal-input').value;
+    closeModal(input);   // resolves with the user's text
+}
+function Cancel() {
+    closeModal(null);    // resolves with null
+}
+</code></pre>
+
+<h3>Creating a Custom Modal</h3>
+<p>Duplicate <code>ui/modals/custom.html</code>, rename it, and update the sections. No C++ changes are needed.</p>
+<pre><code class="language-html">&lt;!-- ui/modals/confirm-delete.html --&gt;
+&lt;modal width="400" height="200" blur="true" closeable="false"&gt;
+    &lt;titlebar value="true"&gt;&lt;/titlebar&gt;
+    &lt;title&gt;&lt;value&gt;Confirm Delete&lt;/value&gt;&lt;/title&gt;
+    &lt;content&gt;
+        &lt;div style="padding:28px; text-align:center; color:#fff; font-family:system-ui,sans-serif;"&gt;
+            &lt;h2&gt;Delete Item?&lt;/h2&gt;
+            &lt;p style="color:#9ca3af"&gt;This action cannot be undone.&lt;/p&gt;
+            &lt;button onclick="closeModal(false)"&gt;Cancel&lt;/button&gt;
+            &lt;button onclick="closeModal(true)"&gt;Delete&lt;/button&gt;
+        &lt;/div&gt;
+    &lt;/content&gt;
+    &lt;script&gt;&lt;/script&gt;
+&lt;/modal&gt;
+</code></pre>
+<pre><code class="language-javascript">// Calling your custom modal
+const confirmed = await window.openModal('confirm-delete');
+if (confirmed) deleteItem();
+</code></pre>
+
+<hr/>
+
+<h2>2. Native System Dialogs (Python Backend)</h2>
+<p>The <code>public/modals.py</code> module wraps <strong>tkinter</strong> system dialogs. These are native OS windows — not WebView — so they work even before the main window is ready, during background tasks, or whenever you need the OS to render the dialog. Each call <strong>blocks the calling thread</strong> until the user dismisses the dialog, then returns the result synchronously.</p>
+
+<h3>Importing</h3>
+<pre><code class="language-python">from public import modals
+</code></pre>
+
+<h3>Function Reference</h3>
+<table>
+    <thead>
+        <tr><th>Function</th><th>Parameters</th><th>Returns</th><th>Dialog type</th></tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>show_alert(title, message)</code></td>
+            <td><code>title: str</code>, <code>message: str</code></td>
+            <td><code>None</code></td>
+            <td>Warning — single OK button</td>
+        </tr>
+        <tr>
+            <td><code>show_info(title, message)</code></td>
+            <td><code>title: str</code>, <code>message: str</code></td>
+            <td><code>None</code></td>
+            <td>Information — single OK button</td>
+        </tr>
+        <tr>
+            <td><code>show_error(title, message)</code></td>
+            <td><code>title: str</code>, <code>message: str</code></td>
+            <td><code>None</code></td>
+            <td>Error — single OK button</td>
+        </tr>
+        <tr>
+            <td><code>show_confirm(title, message)</code></td>
+            <td><code>title: str</code>, <code>message: str</code></td>
+            <td><code>bool</code></td>
+            <td>Yes / No — returns <code>True</code> if Yes</td>
+        </tr>
+        <tr>
+            <td><code>show_prompt(title, message, default="")</code></td>
+            <td><code>title: str</code>, <code>message: str</code>, <code>default: str</code></td>
+            <td><code>str | None</code></td>
+            <td>Text input — returns the string, or <code>None</code> if cancelled</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>show_alert</h3>
+<p>Shows a native OS warning dialog. Blocks until the user clicks OK.</p>
+<pre><code class="language-python">modals.show_alert("Low Disk Space", "Less than 500 MB remaining. Please free up space.")
+</code></pre>
+
+<h3>show_info</h3>
+<p>Shows a native OS information dialog. Blocks until the user clicks OK.</p>
+<pre><code class="language-python">modals.show_info("Export Complete", "Your file has been saved to the Downloads folder.")
+</code></pre>
+
+<h3>show_error</h3>
+<p>Shows a native OS error dialog. Blocks until the user clicks OK.</p>
+<pre><code class="language-python">modals.show_error("Connection Failed", "Could not reach the server. Check your network and try again.")
+</code></pre>
+
+<h3>show_confirm</h3>
+<p>Shows a native OS Yes / No dialog. Returns <code>True</code> if the user clicks Yes, <code>False</code> if they click No.</p>
+<pre><code class="language-python">confirmed = modals.show_confirm("Delete Item", "This action cannot be undone. Continue?")
+if confirmed:
+    delete_item()
+</code></pre>
+
+<h3>show_prompt</h3>
+<p>Shows a native OS text-input dialog. Returns the entered string, or <code>None</code> if the user cancels. Supply <code>default</code> to pre-fill the input field.</p>
+<pre><code class="language-python">name = modals.show_prompt("Rename File", "Enter a new name:", default="untitled")
+if name is not None:
+    rename_file(name)
+</code></pre>
+
+<h3>Calling from the Bridge</h3>
+<p>Register an action in <code>server/api.py</code> to expose any modal to the JavaScript frontend. The bridge Promise resolves once the user dismisses the dialog and the Python thread unblocks.</p>
+
+<h4>Python — server/api.py</h4>
+<pre><code class="language-python">from public import modals
+
+def handle_message(message_str):
+    req    = json.loads(message_str)
+    action = req.get("action")
+
+    # Blocking alert — resolves with null once dismissed
+    if action == "modal_alert":
+        modals.show_alert(req.get("title", "Alert"), req.get("message", ""))
+        return json.dumps({"status": "ok", "result": None})
+
+    # Blocking info dialog
+    elif action == "modal_info":
+        modals.show_info(req.get("title", "Info"), req.get("message", ""))
+        return json.dumps({"status": "ok", "result": None})
+
+    # Blocking error dialog
+    elif action == "modal_error":
+        modals.show_error(req.get("title", "Error"), req.get("message", ""))
+        return json.dumps({"status": "ok", "result": None})
+
+    # Yes/No confirm — result is true or false
+    elif action == "modal_confirm":
+        confirmed = modals.show_confirm(req.get("title", "Confirm"), req.get("message", ""))
+        return json.dumps({"status": "ok", "result": confirmed})
+
+    # Text prompt — result is the string, or null if cancelled
+    elif action == "modal_prompt":
+        value = modals.show_prompt(req.get("title", "Input"), req.get("message", ""), req.get("default", ""))
+        return json.dumps({"status": "ok", "result": value})
+</code></pre>
+
+<h4>JavaScript — calling from the UI</h4>
+<pre><code class="language-javascript">// Alert — resolves once dismissed
+await window.invokeBridge({ action: 'modal_alert', title: 'Warning', message: 'Disk space is low.' });
+
+// Info
+await window.invokeBridge({ action: 'modal_info', title: 'Done', message: 'Export complete.' });
+
+// Error
+await window.invokeBridge({ action: 'modal_error', title: 'Error', message: 'Connection failed.' });
+
+// Confirm — result.result is true (Yes) or false (No)
+const { result: confirmed } = await window.invokeBridge({
+    action: 'modal_confirm',
+    title: 'Delete Item',
+    message: 'This cannot be undone. Continue?'
+});
+if (confirmed) deleteItem();
+
+// Prompt — result.result is the entered string, or null if cancelled
+const { result: name } = await window.invokeBridge({
+    action: 'modal_prompt',
+    title: 'Rename',
+    message: 'Enter a new name:',
+    default: 'untitled'
+});
+if (name !== null) renameItem(name);
+</code></pre>
+
+<h3>Blocking Behaviour</h3>
+<p>Every function in <code>modals.py</code> blocks the Python thread until the dialog is dismissed. This means:</p>
+<ul>
+    <li>The bridge request will not return until the user responds — the JavaScript <code>await</code> naturally waits for it.</li>
+    <li>No other bridge calls can be processed on that thread while a dialog is open.</li>
+    <li>Do not call modals from a background thread that owns resources locked by the main thread, as this can cause a deadlock.</li>
+</ul>
+
+<h3>When to Use Each System</h3>
+<table>
+    <thead><tr><th></th><th>HTML Modals</th><th>Python (tkinter) Dialogs</th></tr></thead>
+    <tbody>
+        <tr><td><strong>Triggered from</strong></td><td>JavaScript frontend</td><td>Python backend or via bridge</td></tr>
+        <tr><td><strong>Appearance</strong></td><td>Fully custom (CSS)</td><td>Native OS look &amp; feel</td></tr>
+        <tr><td><strong>Return value</strong></td><td>Via Promise (<code>closeModal</code>)</td><td>Synchronous Python return</td></tr>
+        <tr><td><strong>Works before webview loads</strong></td><td>No</td><td>Yes</td></tr>
+        <tr><td><strong>Best for</strong></td><td>In-app UX flows, styled dialogs</td><td>Backend errors, startup checks, background tasks</td></tr>
+    </tbody>
+</table>
+
+            </div>
+        </main>
+    </div>
+
+    <footer class="px-6 md:px-12 py-8 border-t border-white/20 mt-auto">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" viewBox="0 -960 960 960" fill="currentColor">
+                    <path d="M320-240 80-480l240-240 57 57-184 183 183 183-56 57Zm320 0-57-57 184-183-183-183 56-57 240 240-240 240Z"/>
+                </svg>
+                <span class="font-semibold">ESDK</span>
+            </div>
+            <div class="flex items-center gap-6 text-sm text-gray-400">
+                <span>© 2026 Ecxo Software.</span>
+                <a href="https://ecxogames.ca/" target="_blank" class="hover:text-white transition-colors">More about us</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    <script>
+        require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+        require(['vs/editor/editor.main'], function () {
+            document.querySelectorAll('pre > code').forEach(function (codeEl) {
+                var pre = codeEl.parentElement;
+                var rawCode = codeEl.textContent.trim();
+                var m = codeEl.className.match(/language-(\w+)/);
+                var lang = m ? m[1] : 'plaintext';
+                var lineCount = rawCode.split('\n').length;
+                var height = Math.max(56, lineCount * 19 + 24);
+                var wrapper = document.createElement('div');
+                wrapper.style.cssText = 'height:' + height + 'px;border:1px solid rgba(255,255,255,0.12);border-radius:6px;overflow:hidden;margin:1.5em 0;';
+                pre.parentNode.insertBefore(wrapper, pre);
+                pre.style.display = 'none';
+                monaco.editor.create(wrapper, {
+                    value: rawCode,
+                    language: lang,
+                    theme: 'vs-dark',
+                    readOnly: true,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    lineNumbers: 'on',
+                    renderLineHighlight: 'none',
+                    fontSize: 13,
+                    fontFamily: '"JetBrains Mono", "Fira Code", Consolas, monospace',
+                    scrollbar: { useShadows: false, verticalScrollbarSize: 8, horizontalScrollbarSize: 6 },
+                    wordWrap: 'off'
+                });
+            });
+        });
+    </script>
+</body>
+</html>
