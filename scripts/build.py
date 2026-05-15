@@ -47,10 +47,10 @@ def prepare_icon():
             except:
                 pass
 
-def run_cmake_build():
+def run_cmake_build(embed_html=False):
     print_header("Compiling C++ Executable")
     prepare_icon()
-    
+
     # Force CMake to re-evaluate whether icon.rc exists by removing the cache.
     cache_file = os.path.join("build", "CMakeCache.txt")
     if os.path.exists(cache_file):
@@ -59,7 +59,12 @@ def run_cmake_build():
         except OSError:
             pass
 
-    subprocess.run(["cmake", "-B", "build"], check=True)
+    cmake_configure = ["cmake", "-B", "build"]
+    if embed_html:
+        cmake_configure.append("-DESD_EMBED_HTML=ON")
+        print("[Info] HTML embedding enabled — UI pages will be baked into the binary.")
+
+    subprocess.run(cmake_configure, check=True)
     subprocess.run(["cmake", "--build", "build", "--config", "Release"], check=True)
 
 def find_exe():
@@ -111,8 +116,9 @@ def build_standalone():
     print_header("SANDBOX / SELF-SUSTAINED BUILD")
     print("Building a completely self-contained distribution folder (Standalone Sandbox)...")
     print("This will embed the official Python runtime alongside the app, increasing file size but making it 100% portable.")
-    
-    run_cmake_build()
+
+    # HTML pages are baked into the binary; the ui/ folder is intentionally excluded from dist.
+    run_cmake_build(embed_html=True)
     exe = find_exe()
     if not exe:
         print("[Error] Executable not found after build.")
@@ -129,11 +135,10 @@ def build_standalone():
 
     print("\n -> Copying executable...")
     shutil.copy(exe, os.path.join(dist_dir, safe_exe_name))
-    
-    print(" -> Copying UI and Server assets...")
-    shutil.copytree("ui", os.path.join(dist_dir, "ui"))
+
+    print(" -> Copying Server assets...")
     shutil.copytree("server", os.path.join(dist_dir, "server"))
-    
+
     if os.path.exists("properties.config"):
         shutil.copy("properties.config", dist_dir)
 

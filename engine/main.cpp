@@ -17,6 +17,15 @@
 
 #include "webview.h"
 
+#ifdef ESD_EMBED_HTML
+#include "embedded_html.h"
+static std::string GetPageHtml(const std::string& path) {
+    const auto& map = GetEmbeddedHtml();
+    auto it = map.find(path);
+    return (it != map.end()) ? it->second : std::string();
+}
+#endif
+
 #ifdef _WIN32
 #include <direct.h>
 #define GetCurrentDir _getcwd
@@ -272,10 +281,22 @@ int main() {
     if (useSplash) {
         auto splashConfig = LoadConfig(splashConfigPath);
         ApplyWindowProperties(w, hwnd, splashConfig, dragBackground);
+#ifdef ESD_EMBED_HTML
+        std::string splashHtml = GetPageHtml("ui/splash/splash.html");
+        if (!splashHtml.empty()) { w.set_html(splashHtml); }
+        else { w.navigate("file://" + cwdUri + "/ui/splash/splash.html"); }
+#else
         w.navigate("file://" + cwdUri + "/ui/splash/splash.html");
+#endif
     } else {
         ApplyWindowProperties(w, hwnd, rootConfig, dragBackground);
+#ifdef ESD_EMBED_HTML
+        std::string mainHtml = GetPageHtml(mainPageFile);
+        if (!mainHtml.empty()) { w.set_html(mainHtml); }
+        else { w.navigate("file://" + cwdUri + "/" + mainPageFile); }
+#else
         w.navigate("file://" + cwdUri + "/" + mainPageFile);
+#endif
     }
 
     // 3. Create the JS -> C++ -> Python Bridge
@@ -321,7 +342,13 @@ int main() {
     // Binding for splash screen to trigger transition
     w.bind("transitionToMain", [&](std::string req) -> std::string {
         ApplyWindowProperties(w, hwnd, rootConfig, dragBackground);
+#ifdef ESD_EMBED_HTML
+        std::string mainHtml = GetPageHtml(mainPageFile);
+        if (!mainHtml.empty()) { w.set_html(mainHtml); }
+        else { w.navigate("file://" + cwdUri + "/" + mainPageFile); }
+#else
         w.navigate("file://" + cwdUri + "/" + mainPageFile);
+#endif
         return "";
     });
 
