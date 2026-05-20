@@ -1,11 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 project(ESDEngine)
 
-# Fix CMake CMP0135 Warning for FetchContent URL downloads
-if(POLICY CMP0135)
-    cmake_policy(SET CMP0135 NEW)
-endif()
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
@@ -18,14 +13,14 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 # Export compile commands for VS Code IntelliSense
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Provide WebView2 implicitly for Windows
+# Locate the WebView2 headers pre-downloaded by setup.py into engine/webview2/
 if(WIN32)
-    include(FetchContent)
-    FetchContent_Declare(
-        webview2
-        URL "https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2"
-    )
-    FetchContent_MakeAvailable(webview2)
+    set(WEBVIEW2_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/engine/webview2")
+    if(NOT EXISTS "${WEBVIEW2_INCLUDE_DIR}/WebView2.h")
+        message(FATAL_ERROR
+            "WebView2 headers not found at engine/webview2/.\n"
+            "Please run 'python scripts/setup.py' first to download them.")
+    endif()
 endif()
 
 # ── HTML Embedding ──
@@ -67,8 +62,8 @@ target_include_directories(ESDEngine PRIVATE ${Python3_INCLUDE_DIRS})
 
 # Link C++ Webview requirements dynamically based on OS
 if(WIN32)
-    # Give target visibility to the extracted webview2 package directory
-    target_include_directories(ESDEngine PRIVATE ${webview2_SOURCE_DIR}/build/native/include)
+    # Give target visibility to the WebView2 headers downloaded by setup.py
+    target_include_directories(ESDEngine PRIVATE ${WEBVIEW2_INCLUDE_DIR})
     
     # We dynamically load Webview2 on Windows via COM, but core Windows libs are still needed
     target_link_libraries(ESDEngine PRIVATE setupapi pathcch)

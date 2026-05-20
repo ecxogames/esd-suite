@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import shutil
 import urllib.request
@@ -309,16 +310,229 @@ Filename: "{{app}}\\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"
         print(" 4. Your Setup.exe will magically appear in the 'dist' folder!")
         print("-" * 50)
 
+def _minify_css(css):
+    css = re.sub(r'/\*.*?\*/', '', css, flags=re.DOTALL)
+    css = re.sub(r'\s+', ' ', css)
+    css = re.sub(r'\s*([{}:;,>~+])\s*', r'\1', css)
+    return css.strip()
+
+def _minify_js(js):
+    js = re.sub(r'/\*.*?\*/', '', js, flags=re.DOTALL)
+    js = re.sub(r'(?<![:/])//[^\n]*', '', js)
+    js = re.sub(r'[ \t]+', ' ', js)
+    js = re.sub(r'\n\s*\n', '\n', js)
+    return js.strip()
+
+def _obfuscate_html(content):
+    def repl_style(m):
+        return f'<style>{_minify_css(m.group(1))}</style>'
+    content = re.sub(r'<style[^>]*>(.*?)</style>', repl_style, content, flags=re.DOTALL | re.IGNORECASE)
+
+    def repl_script(m):
+        open_tag, inner = m.group(1), m.group(2)
+        if 'src=' in open_tag.lower():
+            return m.group(0)
+        return f'{open_tag}{_minify_js(inner)}</script>'
+    content = re.sub(r'(<script\b[^>]*>)(.*?)</script>', repl_script, content, flags=re.DOTALL | re.IGNORECASE)
+
+    content = re.sub(r'<!--(?!\[if).*?-->', '', content, flags=re.DOTALL)
+    content = re.sub(r'>\s{2,}<', '><', content)
+    content = '\n'.join(l.strip() for l in content.splitlines() if l.strip())
+    return content
+
+def _extract_page_parts(filepath):
+    with open(filepath, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    title_m = re.search(r'<title[^>]*>(.*?)</title>', content, re.DOTALL | re.IGNORECASE)
+    title = title_m.group(1).strip() if title_m else os.path.splitext(os.path.basename(filepath))[0]
+
+    styles = re.findall(r'<style[^>]*>.*?</style>', content, re.DOTALL | re.IGNORECASE)
+
+    body_m = re.search(r'<body[^>]*>(.*?)</body>', content, re.DOTALL | re.IGNORECASE)
+    body = body_m.group(1).strip() if body_m else content
+
+    ext_css = re.findall(r'<link\b[^>]*rel=["\']stylesheet["\'][^>]*>', content, re.IGNORECASE)
+    ext_css += re.findall(r'<link\b[^>]*href=["\'][^"\']+["\'][^>]*rel=["\']stylesheet["\'][^>]*>', content, re.IGNORECASE)
+
+    scripts = re.findall(r'<script\b[^>]*>.*?</script>', content, re.DOTALL | re.IGNORECASE)
+    ext_js = re.findall(r'<script\b[^>]*src=["\'][^"\']+["\'][^>]*(?:></script>|/>)', content, re.IGNORECASE)
+
+    return {
+        'title': title,
+        'styles': styles,
+        'ext_css': list(dict.fromkeys(ext_css)),
+        'body': body,
+        'scripts': scripts,
+        'ext_js': list(dict.fromkeys(ext_js)),
+    }
+
+def _build_web_single_html(pages_dir, html_files, dist_dir, safe_name, do_obfuscate):
+    print("\n -> Building single HTML file...")
+
+    if len(html_files) == 1:
+        src = os.path.join(pages_dir, html_files[0])
+        with open(src, 'r', encoding='utf-8') as f:
+            content = f.read()
+        if do_obfuscate:
+            content = _obfuscate_html(content)
+        out_path = os.path.join(dist_dir, safe_name + ".html")
+        with open(out_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print(f"\n[Success] Single HTML file: {os.path.abspath(out_path)}")
+        return
+
+    pages_data = []
+    for fname in html_files:
+        data = _extract_page_parts(os.path.join(pages_dir, fname))
+        data['id'] = re.sub(r'[^a-zA-Z0-9_-]', '_', os.path.splitext(fname)[0])
+        pages_data.append(data)
+
+    seen_css, seen_js = set(), set()
+    ext_css_lines, ext_js_lines = [], []
+    for p in pages_data:
+        for link in p['ext_css']:
+            if link not in seen_css:
+                seen_css.add(link)
+                ext_css_lines.append(f'    {link}')
+        for tag in p['ext_js']:
+            if tag not in seen_js:
+                seen_js.add(tag)
+                ext_js_lines.append(f'    {tag}')
+
+    seen_styles = []
+    for p in pages_data:
+        for s in p['styles']:
+            if s not in seen_styles:
+                seen_styles.append(s)
+
+    tabs_html = ''.join(
+        f'<button class="__tab" data-page="{p["id"]}" onclick="__showPage(\'{p["id"]}\')">{p["title"]}</button>'
+        for p in pages_data
+    )
+    sections_html = ''.join(
+        f'<div id="__page-{p["id"]}" class="__page-section" style="display:none">{p["body"]}</div>'
+        for p in pages_data
+    )
+    first_id = pages_data[0]['id']
+    all_scripts = ''.join(p['scripts'] for p in pages_data)
+
+    combined = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{safe_name}</title>
+{chr(10).join(ext_css_lines)}
+{chr(10).join(seen_styles)}
+<style>
+.__tab-bar{{display:flex;gap:4px;padding:8px;background:#0a0a0a;border-bottom:1px solid #2a2a2a;position:fixed;top:0;left:0;right:0;z-index:9999}}
+.__tab{{padding:5px 14px;border:1px solid #2a2a2a;border-radius:4px;background:transparent;color:#a0a0a0;cursor:pointer;font-family:inherit;font-size:12px;transition:all .15s ease}}
+.__tab:hover{{background:rgba(255,255,255,.07);color:#ccc}}
+.__tab.active{{background:rgba(37,99,235,.18);border-color:rgba(37,99,235,.4);color:#60a5fa}}
+.__page-section{{padding-top:44px}}
+</style>
+</head>
+<body>
+<div class="__tab-bar">{tabs_html}</div>
+{sections_html}
+{chr(10).join(ext_js_lines)}
+{all_scripts}
+<script>
+function __showPage(id){{
+  document.querySelectorAll('.__page-section').forEach(function(s){{s.style.display='none'}});
+  document.querySelectorAll('.__tab').forEach(function(t){{t.classList.remove('active')}});
+  var s=document.getElementById('__page-'+id);if(s)s.style.display='block';
+  var t=document.querySelector('.__tab[data-page="'+id+'"]');if(t)t.classList.add('active');
+}}
+__showPage('{first_id}');
+</script>
+</body>
+</html>"""
+
+    if do_obfuscate:
+        combined = _obfuscate_html(combined)
+
+    out_path = os.path.join(dist_dir, safe_name + ".html")
+    with open(out_path, 'w', encoding='utf-8') as f:
+        f.write(combined)
+    print(f"\n[Success] Combined HTML ({len(html_files)} pages): {os.path.abspath(out_path)}")
+
+def _build_web_zip(pages_dir, dist_dir, safe_name, do_obfuscate):
+    print("\n -> Packaging pages folder as ZIP...")
+
+    out_path = os.path.join(dist_dir, safe_name + "_web.zip")
+    with zipfile.ZipFile(out_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(pages_dir):
+            for fname in files:
+                fpath = os.path.join(root, fname)
+                arcname = os.path.relpath(fpath, os.path.dirname(pages_dir))
+                if fname.lower().endswith('.html') and do_obfuscate:
+                    with open(fpath, 'r', encoding='utf-8') as f:
+                        content = _obfuscate_html(f.read())
+                    zf.writestr(arcname, content)
+                else:
+                    zf.write(fpath, arcname)
+
+    print(f"\n[Success] ZIP archive: {os.path.abspath(out_path)}")
+
+def build_web():
+    print_header("WEB PUBLISH BUILD")
+    print("Packages the ui/pages folder for web publishing.")
+
+    pages_dir = os.path.join("ui", "pages")
+    if not os.path.exists(pages_dir):
+        print(f"[Error] Pages folder not found: {os.path.abspath(pages_dir)}")
+        return
+
+    html_files = sorted(f for f in os.listdir(pages_dir) if f.lower().endswith('.html'))
+    if not html_files:
+        print("[Error] No HTML files found in ui/pages/")
+        return
+
+    print(f"\n -> Found {len(html_files)} page(s): {', '.join(html_files)}")
+
+    while True:
+        print("\nSelect web output format:")
+        print(" 1. Single HTML file  (all pages combined into one .html)")
+        print(" 2. Structured ZIP    (pages folder packaged as a .zip archive)")
+        fmt = input("Choose format (1/2): ").strip()
+        if fmt in ('1', '2'):
+            break
+        print("Invalid choice. Please enter 1 or 2.")
+
+    while True:
+        obf = input("\nObfuscate / minify the output? (y/n): ").strip().lower()
+        if obf in ('y', 'n', 'yes', 'no'):
+            break
+        print("Please enter 'y' or 'n'.")
+    do_obfuscate = obf.startswith('y')
+
+    props = parse_properties_config()
+    app_title = props.get("TITLE", "ESD Suite Application")
+    safe_name = "".join(c for c in app_title if c.isalnum() or c in " _-").strip()
+
+    dist_dir = os.path.join("dist", "Web")
+    if os.path.exists(dist_dir):
+        shutil.rmtree(dist_dir)
+    os.makedirs(dist_dir)
+
+    if fmt == '1':
+        _build_web_single_html(pages_dir, html_files, dist_dir, safe_name, do_obfuscate)
+    else:
+        _build_web_zip(pages_dir, dist_dir, safe_name, do_obfuscate)
+
 def main():
     while True:
         print_header("ESD Suite - Distribution Build Manager")
         print(" 1. Installer         (Creates a Standalone app + generated Setup.exe script)")
         print(" 2. Sandbox/Standalone(Builds a portable folder with embedded Python - No setup required)")
         print(" 3. Regular           (Natively builds .exe - Local Dev Testing ONLY)")
-        print(" 4. Exit")
-        
-        choice = input("\nSelect build type (1/2/3/4): ").strip()
-        
+        print(" 4. Web Publish       (Packages ui/pages as a single HTML or structured ZIP)")
+        print(" 5. Exit")
+
+        choice = input("\nSelect build type (1/2/3/4/5): ").strip()
+
         if choice == '1':
             build_installer()
             break
@@ -329,6 +543,9 @@ def main():
             build_regular()
             break
         elif choice == '4':
+            build_web()
+            break
+        elif choice == '5':
             sys.exit(0)
         else:
             print("Invalid selection. Please type a number.")

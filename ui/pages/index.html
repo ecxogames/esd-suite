@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>ESD Suite SDK</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
@@ -9,7 +10,7 @@
             --bg-panel: #181818;
             --bg-header: #0a0a0a;
             --bg-elevated: #1e1e1e;
-            --bg-hover: rgba(255, 255, 255, 0.04);
+            --bg-hover: rgba(255,255,255,0.04);
             --border-color: #2a2a2a;
             --border-subtle: #333;
             --text-primary: #e0e0e0;
@@ -17,66 +18,162 @@
             --text-muted: #555;
             --text-white: #ffffff;
             --accent: #2563eb;
-            --accent-hover: #1d4ed8;
-            --success: #22c55e;
-            --error: #ef4444;
             --radius-sm: 4px;
-            --radius-md: 6px;
             --radius-lg: 8px;
             --transition: 0.15s ease;
         }
+
+        * { box-sizing: border-box; }
 
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(100,100,100,0.35); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(100,100,100,0.55); }
 
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: var(--bg-app);
-            color: var(--text-primary);
-            font-size: 14px;
-            line-height: 1.5;
+        html, body {
             margin: 0;
             padding: 0;
+            height: 100%;
+            background: var(--bg-app);
+            color: var(--text-primary);
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            overflow: hidden;
+        }
+
+        /* ─────────────────────────────
+           Titlebar
+        ───────────────────────────── */
+        .titlebar {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%;
+            height: 38px;
+            background: var(--bg-header);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+            z-index: 100;
+        }
+
+        /* Absolute overlay — sits BEHIND all interactive titlebar children */
+        .titlebar-drag {
+            position: absolute;
+            inset: 0;
+            cursor: move;
+            z-index: 0;
+        }
+
+        .titlebar-left {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-left: 14px;
+            pointer-events: none;
+        }
+
+        .titlebar-icon { display: flex; align-items: center; }
+
+        .titlebar-label {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            color: var(--text-secondary);
+        }
+
+        /* Modal shortcut buttons — centered between brand and window controls */
+        .titlebar-center {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .tb-modal-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: #777;
+            font-size: 11px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background var(--transition), color var(--transition);
+        }
+
+        .tb-modal-btn:hover { background: rgba(255,255,255,0.07); color: #ccc; }
+        .tb-modal-btn:active { transform: scale(0.96); }
+
+        .tb-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .tb-dot-alert  { background: #f59e0b; }
+        .tb-dot-prompt { background: #3b82f6; }
+        .tb-dot-custom { background: #a855f7; }
+
+        /* Window control buttons */
+        .titlebar-controls {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            height: 38px;
+        }
+
+        .wc-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 46px;
+            height: 100%;
+            background: transparent;
+            border: none;
+            color: #777;
+            cursor: pointer;
+            padding: 0;
+            outline: none;
+            transition: background var(--transition), color var(--transition);
+        }
+
+        .wc-btn:hover  { background: rgba(255,255,255,0.07); color: #ccc; }
+        .wc-close:hover { background: #c42b1c; color: #fff; }
+
+        /* ─────────────────────────────
+           Scrollable content area
+        ───────────────────────────── */
+        .page-scroll {
+            position: absolute;
+            top: 38px; left: 0; right: 0; bottom: 0;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
             align-items: center;
         }
 
-        .titlebar {
-            width: 100%;
-            height: 36px;
-            background: var(--bg-header);
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: fixed;
-            top: 0; left: 0;
-            box-sizing: border-box;
-            color: var(--text-muted);
-            font-size: 11px;
-            font-weight: 500;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            cursor: move;
-            user-select: none;
-            z-index: 100;
-        }
-
         .main-wrapper {
-            margin-top: 36px;
             padding: 32px 24px 52px;
             width: 100%;
             max-width: 780px;
             display: flex;
             flex-direction: column;
             gap: 28px;
-            box-sizing: border-box;
         }
 
-        /* ── Page Header ── */
+        /* ─────────────────────────────
+           Page Header
+        ───────────────────────────── */
         .page-header {
             padding-bottom: 20px;
             border-bottom: 1px solid var(--border-color);
@@ -86,20 +183,16 @@
             font-size: 22px;
             font-weight: 700;
             color: var(--text-white);
-            margin: 0 0 6px 0;
+            margin: 0 0 6px;
         }
 
         .page-header .subtitle {
             font-size: 13px;
             color: var(--text-secondary);
-            margin: 0 0 14px 0;
+            margin: 0 0 14px;
         }
 
-        .badge-row {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
+        .badge-row { display: flex; gap: 6px; flex-wrap: wrap; }
 
         .badge {
             font-size: 10px;
@@ -113,18 +206,23 @@
         .badge-server  { background: rgba(37,99,235,0.18);  color: #60a5fa; border: 1px solid rgba(37,99,235,0.35); }
         .badge-public  { background: rgba(34,197,94,0.14);  color: #4ade80; border: 1px solid rgba(34,197,94,0.30); }
         .badge-private { background: rgba(239,68,68,0.14);  color: #f87171; border: 1px solid rgba(239,68,68,0.30); }
+        .badge-native  { background: rgba(168,85,247,0.14); color: #c084fc; border: 1px solid rgba(168,85,247,0.30); }
 
-        /* ── Section ── */
+        /* ─────────────────────────────
+           Section label
+        ───────────────────────────── */
         .section-label {
             font-size: 10px;
             font-weight: 700;
             letter-spacing: 0.10em;
             text-transform: uppercase;
             color: var(--text-muted);
-            margin: 0 0 10px 0;
+            margin: 0 0 10px;
         }
 
-        /* ── Route Table ── */
+        /* ─────────────────────────────
+           Route / binding table
+        ───────────────────────────── */
         .route-card {
             background: var(--bg-panel);
             border: 1px solid var(--border-color);
@@ -160,7 +258,7 @@
         .route-table tbody tr:hover td { background: var(--bg-hover); }
 
         .action-name {
-            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
             color: var(--text-white);
             font-weight: 500;
@@ -168,7 +266,7 @@
         }
 
         .action-file {
-            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 11px;
             color: var(--text-muted);
             display: block;
@@ -176,7 +274,7 @@
         }
 
         .param-tag {
-            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 11px;
             display: inline-block;
             background: rgba(255,255,255,0.04);
@@ -193,7 +291,9 @@
             line-height: 1.5;
         }
 
-        /* ── Demo Cards ── */
+        /* ─────────────────────────────
+           Cards
+        ───────────────────────────── */
         .card {
             background: var(--bg-panel);
             border: 1px solid var(--border-color);
@@ -217,12 +317,21 @@
             margin: 0;
         }
 
+        .modal-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
         .card p {
             font-size: 12px;
             color: var(--text-secondary);
-            margin: 0 0 12px 0;
+            margin: 0 0 12px;
         }
 
+        /* ─────────────────────────────
+           Inputs & buttons
+        ───────────────────────────── */
         .form-input {
             width: 100%;
             padding: 9px 12px;
@@ -233,7 +342,6 @@
             font-size: 13px;
             font-family: inherit;
             transition: border-color var(--transition);
-            box-sizing: border-box;
             margin-bottom: 10px;
         }
 
@@ -258,14 +366,25 @@
 
         .btn:active { transform: scale(0.97); }
 
-        .btn-server  { background: rgba(37,99,235,0.15); border-color: rgba(37,99,235,0.40); color: #93c5fd; }
+        .btn-server  { background: rgba(37,99,235,0.15);  border-color: rgba(37,99,235,0.40);  color: #93c5fd; }
         .btn-server:hover  { background: rgba(37,99,235,0.25); }
-
-        .btn-public  { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.35); color: #86efac; }
+        .btn-public  { background: rgba(34,197,94,0.12);  border-color: rgba(34,197,94,0.35);  color: #86efac; }
         .btn-public:hover  { background: rgba(34,197,94,0.22); }
-
-        .btn-private { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.35); color: #fca5a5; }
+        .btn-private { background: rgba(239,68,68,0.12);  border-color: rgba(239,68,68,0.35);  color: #fca5a5; }
         .btn-private:hover { background: rgba(239,68,68,0.22); }
+        .btn-native  { background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.35); color: #d8b4fe; }
+        .btn-native:hover  { background: rgba(168,85,247,0.22); }
+        .btn-amber   { background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.35); color: #fcd34d; }
+        .btn-amber:hover   { background: rgba(245,158,11,0.22); }
+        .btn-blue    { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.35); color: #93c5fd; }
+        .btn-blue:hover    { background: rgba(59,130,246,0.22); }
+
+        .btn-wc-minimize { background: rgba(234,179,8,0.12);  border-color: rgba(234,179,8,0.40);  color: #fde047; }
+        .btn-wc-minimize:hover { background: rgba(234,179,8,0.25); }
+        .btn-wc-maximize { background: rgba(34,197,94,0.12);  border-color: rgba(34,197,94,0.40);  color: #86efac; }
+        .btn-wc-maximize:hover { background: rgba(34,197,94,0.25); }
+        .btn-wc-close    { background: rgba(239,68,68,0.12);  border-color: rgba(239,68,68,0.40);  color: #fca5a5; }
+        .btn-wc-close:hover    { background: rgba(239,68,68,0.25); }
 
         .response-box {
             margin-top: 10px;
@@ -273,7 +392,7 @@
             background: #0c0c0c;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-sm);
-            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 11px;
             color: var(--text-muted);
             word-break: break-all;
@@ -284,7 +403,9 @@
         .response-box.ok    { color: #4ade80; }
         .response-box.error { color: #f87171; }
 
-        /* ── Method Dropdown ── */
+        /* ─────────────────────────────
+           Method dropdown
+        ───────────────────────────── */
         .input-wrapper { position: relative; margin-bottom: 10px; }
         .input-wrapper .form-input { margin-bottom: 0; }
         .input-wrapper .form-input.dropdown-open {
@@ -296,8 +417,7 @@
         .method-dropdown {
             display: none;
             position: absolute;
-            top: 100%;
-            left: 0; right: 0;
+            top: 100%; left: 0; right: 0;
             background: var(--bg-elevated);
             border: 1px solid var(--border-subtle);
             border-top: none;
@@ -306,6 +426,7 @@
             overflow: hidden;
             box-shadow: 0 8px 20px rgba(0,0,0,0.5);
         }
+
         .method-dropdown.open { display: block; }
 
         .dd-group {
@@ -316,6 +437,7 @@
             text-transform: uppercase;
             color: var(--text-muted);
         }
+
         .dd-group ~ .dd-group { border-top: 1px solid var(--border-color); padding-top: 9px; margin-top: 2px; }
 
         .dd-item {
@@ -327,32 +449,19 @@
             transition: background var(--transition);
             margin-bottom: 2px;
         }
+
         .dd-item:hover { background: rgba(255,255,255,0.05); }
         .dd-item:last-child { margin-bottom: 4px; }
 
-        .dd-name {
-            font-family: 'JetBrains Mono', 'Consolas', monospace;
-            font-size: 12px;
-            font-weight: 500;
-            color: var(--text-white);
-        }
-        .dd-file {
-            font-family: 'JetBrains Mono', 'Consolas', monospace;
-            font-size: 10px;
-            color: var(--text-muted);
-            flex: 1;
-        }
-        .dd-param {
-            font-family: 'JetBrains Mono', 'Consolas', monospace;
-            font-size: 10px;
-            color: var(--text-secondary);
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 3px;
-            padding: 1px 5px;
-        }
+        .dd-name { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: var(--text-white); }
+        .dd-file  { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-muted); flex: 1; }
+        .dd-param { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-secondary);
+                    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+                    border-radius: 3px; padding: 1px 5px; }
 
-        /* ── Footer ── */
+        /* ─────────────────────────────
+           Footer
+        ───────────────────────────── */
         .footer {
             display: flex;
             justify-content: center;
@@ -374,138 +483,360 @@
     </style>
 </head>
 <body>
-    <div class="titlebar" onmousedown="if(window.dragWindow) window.dragWindow('')">
-        ESD Suite · SDK Template
+
+    <!-- ── Titlebar ── -->
+    <div class="titlebar">
+        <div class="titlebar-drag" onmousedown="if(window.dragWindow) window.dragWindow('')"></div>
+
+        <div class="titlebar-left">
+            <div class="titlebar-icon">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <rect x="0.5" y="0.5" width="5.5" height="5.5" rx="1.2" fill="#6366f1"/>
+                    <rect x="8"   y="0.5" width="5.5" height="5.5" rx="1.2" fill="#818cf8" opacity="0.65"/>
+                    <rect x="0.5" y="8"   width="5.5" height="5.5" rx="1.2" fill="#818cf8" opacity="0.65"/>
+                    <rect x="8"   y="8"   width="5.5" height="5.5" rx="1.2" fill="#6366f1"/>
+                </svg>
+            </div>
+            <span class="titlebar-label">ESD Suite</span>
+        </div>
+
+        <div class="titlebar-center">
+            <button class="tb-modal-btn" onclick="demoAlert()" title="Open alert modal">
+                <span class="tb-dot tb-dot-alert"></span>Alert
+            </button>
+            <button class="tb-modal-btn" onclick="demoPrompt()" title="Open prompt modal">
+                <span class="tb-dot tb-dot-prompt"></span>Prompt
+            </button>
+            <button class="tb-modal-btn" onclick="demoCustom()" title="Open custom modal">
+                <span class="tb-dot tb-dot-custom"></span>Custom
+            </button>
+        </div>
+
+        <div class="titlebar-controls">
+            <button class="wc-btn" onclick="if(window.windowMinimize) window.windowMinimize()" title="Minimize">
+                <svg width="10" height="2" viewBox="0 0 10 2" fill="currentColor">
+                    <rect width="10" height="1.5" rx="0.75"/>
+                </svg>
+            </button>
+            <button class="wc-btn" onclick="if(window.windowMaximize) window.windowMaximize()" title="Maximize">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round">
+                    <rect x="0.6" y="0.6" width="8.8" height="8.8" rx="1"/>
+                </svg>
+            </button>
+            <button class="wc-btn wc-close" onclick="if(window.windowClose) window.windowClose()" title="Close">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                    <line x1="1" y1="1" x2="9" y2="9"/>
+                    <line x1="9" y1="1" x2="1" y2="9"/>
+                </svg>
+            </button>
+        </div>
     </div>
 
-    <div class="main-wrapper">
+    <!-- ── Page content (scrollable, sits below the fixed titlebar) ── -->
+    <div class="page-scroll">
+        <div class="main-wrapper">
 
-        <!-- Header -->
-        <div class="page-header">
-            <h1>ESD Suite SDK</h1>
-            <p class="subtitle">Cross-platform desktop runtime &mdash; WebView UI bridged to an embedded Python backend via C++.</p>
-            <div class="badge-row">
-                <span class="badge badge-server">Server Layer</span>
-                <span class="badge badge-public">Public Modules</span>
-                <span class="badge badge-private">Private Modules</span>
-            </div>
-        </div>
-
-        <!-- Backend Access List -->
-        <div>
-            <p class="section-label">Backend Access List</p>
-            <div class="route-card">
-                <table class="route-table">
-                    <thead>
-                        <tr>
-                            <th style="width:28%">Action / File</th>
-                            <th style="width:14%">Layer</th>
-                            <th style="width:20%">Parameters</th>
-                            <th>Description</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>
-                                <span class="action-name">ping</span>
-                                <span class="action-file">server/api.py</span>
-                            </td>
-                            <td><span class="badge badge-server">Server</span></td>
-                            <td><span class="param-tag">data: string</span></td>
-                            <td class="route-desc">Bridge health check. Echoes the payload back from Python through the C++ layer.</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <span class="action-name">public_demo</span>
-                                <span class="action-file">public/utils.py</span>
-                            </td>
-                            <td><span class="badge badge-public">Public</span></td>
-                            <td><span class="param-tag">name: string</span></td>
-                            <td class="route-desc">Calls a public utility module. Intended for formatting helpers, non-sensitive API calls, and generic logic safe to expose.</td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <span class="action-name">private_demo</span>
-                                <span class="action-file">private/secret_processor.py</span>
-                            </td>
-                            <td><span class="badge badge-private">Private</span></td>
-                            <td><span class="param-tag">secret_data: string</span></td>
-                            <td class="route-desc">Calls a private module. Intended for databases, file I/O, encryption, and any sensitive operations hidden from the frontend.</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Interactive Demo -->
-        <div>
-            <p class="section-label">Interactive Bridge Demo</p>
-
-            <div class="card">
-                <div class="card-header">
-                    <span class="badge badge-server">Server</span>
-                    <h3>Ping Python Backend</h3>
+            <div class="page-header">
+                <h1>ESD Suite SDK</h1>
+                <p class="subtitle">Cross-platform desktop runtime &mdash; WebView UI bridged to an embedded Python backend via C++.</p>
+                <div class="badge-row">
+                    <span class="badge badge-server">Server Layer</span>
+                    <span class="badge badge-public">Public Modules</span>
+                    <span class="badge badge-private">Private Modules</span>
+                    <span class="badge badge-native">Native Bindings</span>
                 </div>
-                <p>Sends a test payload through the C++ bridge to <code style="font-family:monospace;font-size:11px;color:#93c5fd">server/api.py</code> and returns the response. Use this to verify the bridge is active.</p>
-                <button class="btn btn-server" onclick="sendPing()">&#9654; Ping Backend</button>
-                <div id="res-ping" class="response-box">Waiting for action...</div>
             </div>
 
-            <div class="card">
-                <div class="card-header">
-                    <h3>Public &amp; Private Module Demo</h3>
+            <!-- Backend Access List -->
+            <div>
+                <p class="section-label">Backend Access List</p>
+                <div class="route-card">
+                    <table class="route-table">
+                        <thead>
+                            <tr>
+                                <th style="width:28%">Action / File</th>
+                                <th style="width:14%">Layer</th>
+                                <th style="width:20%">Parameters</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <span class="action-name">ping</span>
+                                    <span class="action-file">server/api.py</span>
+                                </td>
+                                <td><span class="badge badge-server">Server</span></td>
+                                <td><span class="param-tag">data: string</span></td>
+                                <td class="route-desc">Bridge health check. Echoes the payload back from Python through the C++ layer.</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="action-name">public_demo</span>
+                                    <span class="action-file">public/utils.py</span>
+                                </td>
+                                <td><span class="badge badge-public">Public</span></td>
+                                <td><span class="param-tag">name: string</span></td>
+                                <td class="route-desc">Calls a public utility module. Intended for formatting helpers, non-sensitive API calls, and generic logic safe to expose.</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="action-name">private_demo</span>
+                                    <span class="action-file">private/secret_processor.py</span>
+                                </td>
+                                <td><span class="badge badge-private">Private</span></td>
+                                <td><span class="param-tag">secret_data: string</span></td>
+                                <td class="route-desc">Calls a private module. Intended for databases, file I/O, encryption, and any sensitive operations hidden from the frontend.</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="action-name">modal_alert</span>
+                                    <span class="action-file">public/modals.py</span>
+                                </td>
+                                <td><span class="badge badge-public">Public</span></td>
+                                <td><span class="param-tag">title: string</span> <span class="param-tag">message: string</span></td>
+                                <td class="route-desc">Shows a native OS warning dialog with an OK button. Blocks the Python thread until dismissed.</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="action-name">modal_info</span>
+                                    <span class="action-file">public/modals.py</span>
+                                </td>
+                                <td><span class="badge badge-public">Public</span></td>
+                                <td><span class="param-tag">title: string</span> <span class="param-tag">message: string</span></td>
+                                <td class="route-desc">Shows a native OS information dialog with an OK button.</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="action-name">modal_error</span>
+                                    <span class="action-file">public/modals.py</span>
+                                </td>
+                                <td><span class="badge badge-public">Public</span></td>
+                                <td><span class="param-tag">title: string</span> <span class="param-tag">message: string</span></td>
+                                <td class="route-desc">Shows a native OS error dialog with an OK button.</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="action-name">modal_confirm</span>
+                                    <span class="action-file">public/modals.py</span>
+                                </td>
+                                <td><span class="badge badge-public">Public</span></td>
+                                <td><span class="param-tag">title: string</span> <span class="param-tag">message: string</span></td>
+                                <td class="route-desc">Shows a native OS Yes/No dialog. Returns <code style="font-family:monospace;font-size:11px">true</code> or <code style="font-family:monospace;font-size:11px">false</code>.</td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="action-name">modal_prompt</span>
+                                    <span class="action-file">public/modals.py</span>
+                                </td>
+                                <td><span class="badge badge-public">Public</span></td>
+                                <td><span class="param-tag">title: string</span> <span class="param-tag">message: string</span> <span class="param-tag">default?: string</span></td>
+                                <td class="route-desc">Shows a native OS text input dialog. Returns the entered <code style="font-family:monospace;font-size:11px">string</code>, or <code style="font-family:monospace;font-size:11px">null</code> if cancelled.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                <p>Demonstrates routing to both public and private Python modules through the same bridge. The public path runs <code style="font-family:monospace;font-size:11px;color:#4ade80">utils.py</code>, the private path runs <code style="font-family:monospace;font-size:11px;color:#f87171">secret_processor.py</code>.</p>
-                <div class="input-wrapper">
-                    <input type="text" id="userInput" class="form-input" placeholder="Enter a name or any text..." />
-                    <div id="methodDropdown" class="method-dropdown">
-                        <div class="dd-group">Public</div>
-                        <div class="dd-item" onmousedown="callPublic()">
-                            <span class="dd-name">public_demo</span>
-                            <span class="dd-file">public/utils.py</span>
-                            <span class="badge badge-public" style="flex-shrink:0">Public</span>
-                            <span class="dd-param">name: string</span>
-                        </div>
-                        <div class="dd-group">Private</div>
-                        <div class="dd-item" onmousedown="callPrivate()">
-                            <span class="dd-name">private_demo</span>
-                            <span class="dd-file">private/secret_processor.py</span>
-                            <span class="badge badge-private" style="flex-shrink:0">Private</span>
-                            <span class="dd-param">secret_data: string</span>
+            </div>
+
+            <!-- Native Bindings Reference -->
+            <div>
+                <p class="section-label">Native Bindings</p>
+                <div class="route-card">
+                    <table class="route-table">
+                        <thead>
+                            <tr>
+                                <th style="width:28%">Binding</th>
+                                <th style="width:14%">Layer</th>
+                                <th style="width:20%">Parameters</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="action-name">windowClose()</span></td>
+                                <td><span class="badge badge-native">Native</span></td>
+                                <td><span class="param-tag">—</span></td>
+                                <td class="route-desc">Posts WM_CLOSE to the native window handle.</td>
+                            </tr>
+                            <tr>
+                                <td><span class="action-name">windowMinimize()</span></td>
+                                <td><span class="badge badge-native">Native</span></td>
+                                <td><span class="param-tag">—</span></td>
+                                <td class="route-desc">Minimizes the window to the taskbar.</td>
+                            </tr>
+                            <tr>
+                                <td><span class="action-name">windowMaximize()</span></td>
+                                <td><span class="badge badge-native">Native</span></td>
+                                <td><span class="param-tag">—</span></td>
+                                <td class="route-desc">Toggles between maximized and restored states.</td>
+                            </tr>
+                            <tr>
+                                <td><span class="action-name">openModal(name)</span></td>
+                                <td><span class="badge badge-native">Native</span></td>
+                                <td><span class="param-tag">name: string</span></td>
+                                <td class="route-desc">Opens <code style="font-family:monospace;font-size:11px;color:#c084fc">ui/modals/&lt;name&gt;.html</code> as a new native OS window. Returns a Promise that resolves when the modal calls <code style="font-family:monospace;font-size:11px">closeModal(value)</code>.</td>
+                            </tr>
+                            <tr>
+                                <td><span class="action-name">closeModal(value)</span></td>
+                                <td><span class="badge badge-native">Native</span></td>
+                                <td><span class="param-tag">value: any</span></td>
+                                <td class="route-desc">Closes the modal OS window and resolves the parent's Promise with <code style="font-family:monospace;font-size:11px">value</code>. Only available inside a modal's <code style="font-family:monospace;font-size:11px">&lt;script&gt;</code>.</td>
+                            </tr>
+                            <tr>
+                                <td><span class="action-name">dragWindow()</span></td>
+                                <td><span class="badge badge-native">Native</span></td>
+                                <td><span class="param-tag">—</span></td>
+                                <td class="route-desc">Initiates a native window drag. Bind to <code style="font-family:monospace;font-size:11px">onmousedown</code> on any drag region.</td>
+                            </tr>
+                            <tr>
+                                <td><span class="action-name">openExternalLink(url)</span></td>
+                                <td><span class="badge badge-native">Native</span></td>
+                                <td><span class="param-tag">url: string</span></td>
+                                <td class="route-desc">Opens a URL in the system browser. All <code style="font-family:monospace;font-size:11px">&lt;a href&gt;</code> clicks are intercepted automatically.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Interactive Bridge Demo -->
+            <div>
+                <p class="section-label">Interactive Bridge Demo</p>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="badge badge-server">Server</span>
+                        <h3>Ping Python Backend</h3>
+                    </div>
+                    <p>Sends a test payload through the C++ bridge to <code style="font-family:monospace;font-size:11px;color:#93c5fd">server/api.py</code> and returns the response.</p>
+                    <button class="btn btn-server" onclick="sendPing()">&#9654; Ping Backend</button>
+                    <div id="res-ping" class="response-box">Waiting for action...</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Public &amp; Private Module Demo</h3>
+                    </div>
+                    <p>Routes to public or private Python modules through the same bridge.</p>
+                    <div class="input-wrapper">
+                        <input type="text" id="userInput" class="form-input" placeholder="Enter a name or any text...">
+                        <div id="methodDropdown" class="method-dropdown">
+                            <div class="dd-group">Public</div>
+                            <div class="dd-item" onmousedown="callPublic()">
+                                <span class="dd-name">public_demo</span>
+                                <span class="dd-file">public/utils.py</span>
+                                <span class="badge badge-public" style="flex-shrink:0">Public</span>
+                                <span class="dd-param">name: string</span>
+                            </div>
+                            <div class="dd-group">Private</div>
+                            <div class="dd-item" onmousedown="callPrivate()">
+                                <span class="dd-name">private_demo</span>
+                                <span class="dd-file">private/secret_processor.py</span>
+                                <span class="badge badge-private" style="flex-shrink:0">Private</span>
+                                <span class="dd-param">secret_data: string</span>
+                            </div>
                         </div>
                     </div>
+                    <div class="btn-row">
+                        <button class="btn btn-public"  onclick="callPublic()">Public Module &#8594;</button>
+                        <button class="btn btn-private" onclick="callPrivate()">Private Module &#8594;</button>
+                    </div>
+                    <div id="res-module" class="response-box">Waiting for backend...</div>
                 </div>
-                <div class="btn-row">
-                    <button class="btn btn-public"  onclick="callPublic()">Public Module &#8594;</button>
-                    <button class="btn btn-private" onclick="callPrivate()">Private Module &#8594;</button>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="badge badge-native">Native</span>
+                        <h3>Window Controls</h3>
+                    </div>
+                    <p>Native window bindings — also wired to the titlebar buttons above. <code style="font-family:monospace;font-size:11px;color:#c084fc">windowMaximize()</code> toggles between maximized and restored.</p>
+                    <div class="btn-row">
+                        <button class="btn btn-wc-minimize" onclick="if(window.windowMinimize) window.windowMinimize()">&#8212; Minimize</button>
+                        <button class="btn btn-wc-maximize" onclick="if(window.windowMaximize) window.windowMaximize()">&#9633; Maximize / Restore</button>
+                        <button class="btn btn-wc-close"    onclick="if(window.windowClose) window.windowClose()">&#10005; Close</button>
+                    </div>
                 </div>
-                <div id="res-module" class="response-box">Waiting for backend...</div>
             </div>
-        </div>
 
-        <!-- Footer -->
-        <div class="footer">
-            <a href="https://ecxogames.ca">
-                Ecxo Games
-                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M3.5 2H2a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V8.5M6 6l4.5-4.5M10.5 1.5H7.5M10.5 1.5V4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </a>
-        </div>
+            <!-- Modal System -->
+            <div>
+                <p class="section-label">Modal System</p>
 
+                <div class="card">
+                    <div class="card-header">
+                        <span class="modal-dot" style="background:#f59e0b"></span>
+                        <h3>alert.html</h3>
+                        <span class="badge badge-native" style="margin-left:auto">Native</span>
+                    </div>
+                    <p>A simple notification dialog. <code style="font-family:monospace;font-size:11px">openModal('alert')</code> opens a native OS window and resolves with <code style="font-family:monospace;font-size:11px">null</code> once dismissed. Features a custom HTML titlebar with no OS chrome.</p>
+                    <button class="btn btn-amber" onclick="demoAlert()">&#9655; Open Alert</button>
+                    <div id="res-alert" class="response-box">Result will appear here...</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="modal-dot" style="background:#3b82f6"></span>
+                        <h3>prompt.html</h3>
+                        <span class="badge badge-native" style="margin-left:auto">Native</span>
+                    </div>
+                    <p>A text-input dialog. <code style="font-family:monospace;font-size:11px">openModal('prompt')</code> opens a native OS window and resolves with the entered <code style="font-family:monospace;font-size:11px">string</code> on OK, or <code style="font-family:monospace;font-size:11px">null</code> on Cancel.</p>
+                    <button class="btn btn-blue" onclick="demoPrompt()">&#9655; Open Prompt</button>
+                    <div id="res-prompt" class="response-box">Result will appear here...</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="modal-dot" style="background:#a855f7"></span>
+                        <h3>custom.html</h3>
+                        <span class="badge badge-native" style="margin-left:auto">Native</span>
+                    </div>
+                    <p>A blank confirm/cancel template. Opens a native OS window and resolves with <code style="font-family:monospace;font-size:11px">true</code> (Confirm) or <code style="font-family:monospace;font-size:11px">false</code> (Cancel). Duplicate and rename to build any custom dialog — no C++ changes needed.</p>
+                    <button class="btn btn-native" onclick="demoCustom()">&#9655; Open Custom</button>
+                    <div id="res-custom" class="response-box">Result will appear here...</div>
+                </div>
+            </div>
+
+            <!-- Native System Dialogs -->
+            <div>
+                <p class="section-label">Native System Dialogs</p>
+
+                <div class="card">
+                    <div class="card-header">
+                        <span class="badge badge-public">Public</span>
+                        <h3>public/modals.py</h3>
+                    </div>
+                    <p>Triggers native OS dialogs via <code style="font-family:monospace;font-size:11px;color:#86efac">public/modals.py</code> on the Python backend. Dialogs use tkinter and block the Python thread until the user responds — the bridge Promise resolves once dismissed.</p>
+                    <input type="text" id="modal-title" class="form-input" placeholder="Dialog title..." value="Hello from ESD">
+                    <input type="text" id="modal-message" class="form-input" placeholder="Dialog message..." value="This is a native OS dialog.">
+                    <input type="text" id="modal-default" class="form-input" placeholder="Default value (prompt only, optional)...">
+                    <div class="btn-row">
+                        <button class="btn btn-amber"   onclick="callModalAlert()">&#9888; Alert</button>
+                        <button class="btn btn-blue"    onclick="callModalInfo()">&#8505; Info</button>
+                        <button class="btn btn-private" onclick="callModalError()">&#10005; Error</button>
+                        <button class="btn btn-public"  onclick="callModalConfirm()">? Confirm</button>
+                        <button class="btn btn-native"  onclick="callModalPrompt()">&#9998; Prompt</button>
+                    </div>
+                    <div id="res-modals" class="response-box">Waiting for action...</div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <a href="https://ecxogames.ca">
+                    Ecxo Games
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                        <path d="M3.5 2H2a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V8.5M6 6l4.5-4.5M10.5 1.5H7.5M10.5 1.5V4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </a>
+            </div>
+
+        </div>
     </div>
 
     <script>
         const userInput = document.getElementById('userInput');
         const methodDropdown = document.getElementById('methodDropdown');
-        userInput.addEventListener('focus', () => {
-            methodDropdown.classList.add('open');
-            userInput.classList.add('dropdown-open');
-        });
-        userInput.addEventListener('blur', () => {
-            methodDropdown.classList.remove('open');
-            userInput.classList.remove('dropdown-open');
-        });
+        userInput.addEventListener('focus', () => { methodDropdown.classList.add('open'); userInput.classList.add('dropdown-open'); });
+        userInput.addEventListener('blur',  () => { methodDropdown.classList.remove('open'); userInput.classList.remove('dropdown-open'); });
 
         function setRes(id, text, isError) {
             const el = document.getElementById(id);
@@ -514,27 +845,75 @@
         }
 
         function sendPing() {
-            if (!window.invokeBridge) { setRes('res-ping', 'Error: C++ WebView bridge not found.', true); return; }
+            if (!window.invokeBridge) { setRes('res-ping', 'Error: bridge not found.', true); return; }
             window.invokeBridge({ action: 'ping', data: 'Hello from UI!' })
-                .then(res => setRes('res-ping', res.result || res.reason || JSON.stringify(res), res.status !== 'ok'))
-                .catch(err => setRes('res-ping', 'Bridge error: ' + err, true));
+                .then(r => setRes('res-ping', r.result || r.reason || JSON.stringify(r), r.status !== 'ok'))
+                .catch(e => setRes('res-ping', 'Bridge error: ' + e, true));
         }
 
         function callPublic() {
-            if (!window.invokeBridge) { setRes('res-module', 'Error: C++ WebView bridge not found.', true); return; }
-            const val = document.getElementById('userInput').value;
-            window.invokeBridge({ action: 'public_demo', name: val })
-                .then(res => setRes('res-module', '[public/utils.py] ' + (res.result || res.reason || JSON.stringify(res)), res.status !== 'ok'))
-                .catch(err => setRes('res-module', 'Error: ' + err, true));
+            if (!window.invokeBridge) { setRes('res-module', 'Error: bridge not found.', true); return; }
+            window.invokeBridge({ action: 'public_demo', name: userInput.value })
+                .then(r => setRes('res-module', '[public/utils.py] ' + (r.result || r.reason || JSON.stringify(r)), r.status !== 'ok'))
+                .catch(e => setRes('res-module', 'Error: ' + e, true));
         }
 
         function callPrivate() {
-            if (!window.invokeBridge) { setRes('res-module', 'Error: C++ WebView bridge not found.', true); return; }
-            const val = document.getElementById('userInput').value;
-            window.invokeBridge({ action: 'private_demo', secret_data: val })
-                .then(res => setRes('res-module', '[private/secret_processor.py] ' + (res.result || res.reason || JSON.stringify(res)), res.status !== 'ok'))
-                .catch(err => setRes('res-module', 'Error: ' + err, true));
+            if (!window.invokeBridge) { setRes('res-module', 'Error: bridge not found.', true); return; }
+            window.invokeBridge({ action: 'private_demo', secret_data: userInput.value })
+                .then(r => setRes('res-module', '[private/secret_processor.py] ' + (r.result || r.reason || JSON.stringify(r)), r.status !== 'ok'))
+                .catch(e => setRes('res-module', 'Error: ' + e, true));
         }
+
+        async function demoAlert() {
+            if (!window.openModal) { setRes('res-alert', 'Error: openModal not available.', true); return; }
+            await window.openModal('alert');
+            setRes('res-alert', 'Dismissed.', false);
+        }
+
+        async function demoPrompt() {
+            if (!window.openModal) { setRes('res-prompt', 'Error: openModal not available.', true); return; }
+            const result = await window.openModal('prompt');
+            if (result !== null && result !== undefined) {
+                setRes('res-prompt', 'Returned: "' + result + '"', false);
+            } else {
+                setRes('res-prompt', 'Cancelled — returned null.', true);
+            }
+        }
+
+        async function demoCustom() {
+            if (!window.openModal) { setRes('res-custom', 'Error: openModal not available.', true); return; }
+            const result = await window.openModal('custom');
+            setRes('res-custom', result === true ? 'Confirmed — returned true.' : 'Cancelled — returned false.', result !== true);
+        }
+
+        function _callModal(action, extra) {
+            if (!window.invokeBridge) { setRes('res-modals', 'Error: bridge not found.', true); return; }
+            const payload = {
+                action,
+                title:   document.getElementById('modal-title').value,
+                message: document.getElementById('modal-message').value,
+                ...extra
+            };
+            window.invokeBridge(payload)
+                .then(r => {
+                    const val = r.result;
+                    const text = val === null  ? 'Dismissed — returned null.' :
+                                 val === true  ? 'Confirmed — returned true.' :
+                                 val === false ? 'Cancelled — returned false.' :
+                                 val !== undefined ? 'Returned: "' + val + '"' :
+                                 r.reason || JSON.stringify(r);
+                    setRes('res-modals', '[' + action + '] ' + text, r.status !== 'ok');
+                })
+                .catch(e => setRes('res-modals', 'Bridge error: ' + e, true));
+        }
+
+        function callModalAlert()   { _callModal('modal_alert'); }
+        function callModalInfo()    { _callModal('modal_info'); }
+        function callModalError()   { _callModal('modal_error'); }
+        function callModalConfirm() { _callModal('modal_confirm'); }
+        function callModalPrompt()  { _callModal('modal_prompt', { default: document.getElementById('modal-default').value }); }
     </script>
+
 </body>
 </html>

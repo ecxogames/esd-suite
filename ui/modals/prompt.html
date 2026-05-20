@@ -1,0 +1,54 @@
+<modal width="420" height="260" blur="false" closeable="true" titlebar="false">
+    <titlebar value="false" height="38">
+        <div style="position:relative;height:100%;background:#0a0a0a;border-bottom:1px solid #2a2a2a;display:flex;align-items:center;justify-content:space-between;font-family:'Inter',-apple-system,sans-serif;user-select:none;">
+            <div style="position:absolute;inset:0;cursor:move;z-index:0;" onmousedown="if(window.dragWindow) window.dragWindow('')"></div>
+            <div style="position:relative;z-index:1;display:flex;align-items:center;gap:8px;padding-left:12px;pointer-events:none;">
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                    <rect x="0.5" y="0.5" width="5.5" height="5.5" rx="1.2" fill="#6366f1"/>
+                    <rect x="8" y="0.5" width="5.5" height="5.5" rx="1.2" fill="#818cf8" opacity="0.65"/>
+                    <rect x="0.5" y="8" width="5.5" height="5.5" rx="1.2" fill="#818cf8" opacity="0.65"/>
+                    <rect x="8" y="8" width="5.5" height="5.5" rx="1.2" fill="#6366f1"/>
+                </svg>
+                <span style="font-size:12px;font-weight:600;letter-spacing:0.01em;color:#a0a0a0;">Prompt</span>
+            </div>
+            <button onclick="Close()" title="Close" style="position:relative;z-index:1;width:46px;height:38px;border:none;background:transparent;color:#777;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.15s ease,color 0.15s ease;" onmouseover="this.style.color='#c42b1c'" onmouseout="this.style.color='#777'">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+                    <line x1="1" y1="1" x2="9" y2="9"/>
+                    <line x1="9" y1="1" x2="1" y2="9"/>
+                </svg>
+            </button>
+        </div>
+    </titlebar>
+
+    <title><value>Input</value></title>
+
+    <content>
+        <div style="display:flex;flex-direction:column;justify-content:space-between;align-items:center;height:100%;width:100%;background:transparent;color:#e0e0e0;font-family:'Inter';display:flex;padding:20px;">
+            <h2 style="margin:0 0 8px;font-size:16px;line-height:1.2;font-weight:600;color:#fff;">Input Required</h2>
+            <p style="margin:0 0 12px;font-size:12px;line-height:1.5;color:#a0a0a0;">Please enter a value:</p>
+            <input id="modal-input" type="text" placeholder="Type here..." style="width:100%;box-sizing:border-box;padding:9px 12px;background:#1e1e1e;border:1px solid #333;border-radius:4px;color:#e0e0e0;font-size:13px;font-family:'Inter',-apple-system,sans-serif;outline:none;transition:border-color 0.15s ease;margin-bottom:14px;" onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#333'" onkeydown="if(event.key==='Enter') Submit(); if(event.key==='Escape') Cancel();" />
+            <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+                <button onclick="Cancel()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:4px;font-size:12px;font-weight:500;border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.12);color:#fca5a5;cursor:pointer;transition:all 0.15s ease;" onmouseover="this.style.background='rgba(239,68,68,0.22)'" onmouseout="this.style.background='rgba(239,68,68,0.12)'">Cancel</button>
+                <button onclick="Submit()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:4px;font-size:12px;font-weight:500;border:1px solid rgba(59,130,246,0.35);background:rgba(59,130,246,0.12);color:#93c5fd;cursor:pointer;transition:all 0.15s ease;" onmouseover="this.style.background='rgba(59,130,246,0.22)'" onmouseout="this.style.background='rgba(59,130,246,0.12)'">OK</button>
+            </div>
+        </div>
+    </content>
+
+    <script>
+        const input = document.getElementById('modal-input');
+        input.focus();
+
+        function Submit() {
+            var value = input.value;
+            closeModal(value);
+        }
+
+        function Cancel() {
+            closeModal(null);
+        }
+
+        function Close() {
+            closeModal();
+        }
+    </script>
+</modal>

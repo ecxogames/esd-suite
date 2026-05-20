@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <cstdlib>
+#include <ctime>
 #include <fstream>
 #include <sstream>
 #include <unordered_map>
@@ -39,6 +40,168 @@ static std::string GetPageHtml(const std::string& path) {
 #include <unistd.h>
 #define GetCurrentDir getcwd
 #endif
+
+// ── Modal parsing helpers ──────────────────────────────────────────────────
+
+// Extract a quoted attribute value from an HTML-like opening tag string.
+static std::string ModalAttr(const std::string& tag, const std::string& attr,
+                              const std::string& def = "") {
+    for (char q : {'"', '\''}) {
+        std::string key = attr + "=";
+        key += q;
+        auto pos = tag.find(key);
+        if (pos == std::string::npos) continue;
+        pos += key.size();
+        auto end = tag.find(q, pos);
+        if (end == std::string::npos) continue;
+        return tag.substr(pos, end - pos);
+    }
+    return def;
+}
+
+// Extract the first opening tag (e.g. "<modal ...>") for a given tag name.
+static std::string ModalOpenTag(const std::string& html, const std::string& tag) {
+    auto start = html.find("<" + tag);
+    if (start == std::string::npos) return "";
+    auto end = html.find('>', start);
+    if (end == std::string::npos) return "";
+    return html.substr(start, end - start + 1);
+}
+
+// Extract the trimmed inner content between <tag ...> and </tag>.
+static std::string ModalInner(const std::string& html, const std::string& tag) {
+    auto open = html.find("<" + tag);
+    if (open == std::string::npos) return "";
+    auto bodyStart = html.find('>', open);
+    if (bodyStart == std::string::npos) return "";
+    bodyStart++;
+    auto close = html.find("</" + tag + ">", bodyStart);
+    if (close == std::string::npos) return "";
+    std::string inner = html.substr(bodyStart, close - bodyStart);
+    auto s = inner.find_first_not_of(" \t\r\n");
+    if (s == std::string::npos) return "";
+    auto e = inner.find_last_not_of(" \t\r\n");
+    return inner.substr(s, e - s + 1);
+}
+
+// ── Modal OS-window thread ─────────────────────────────────────────────────
+
+struct ModalThreadParams {
+    std::string generatedHtml;
+    std::string windowTitle;
+    int   width;
+    int   height;
+    int   cornerRadius;  // rounded corners applied to frameless windows (0 = none)
+    bool  useOsChrome;   // true = native OS titlebar; false = WS_POPUP (frameless)
+    bool  closeable;
+    bool  devTools;
+    webview::webview* parentWv;
+};
+
+static DWORD WINAPI ModalWindowThread(LPVOID param) {
+    auto* p = static_cast<ModalThreadParams*>(param);
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+
+    std::string result = "null";
+
+    {
+        webview::webview modal(p->devTools, nullptr);
+        HWND mhwnd = static_cast<HWND>(modal.window());
+
+#ifdef _WIN32
+        if (!p->useOsChrome) {
+            // Frameless popup — strip all OS window chrome
+            LONG_PTR style = GetWindowLongPtr(mhwnd, GWL_STYLE);
+            style = (style & ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX))
+                  | WS_POPUP | WS_VISIBLE;
+            SetWindowLongPtr(mhwnd, GWL_STYLE, style);
+            SetWindowPos(mhwnd, nullptr, 0, 0, 0, 0,
+                         SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+        } else {
+            // Native titlebar — keep chrome but lock size and set title
+            modal.set_title(p->windowTitle);
+            if (!p->closeable) {
+                HMENU hMenu = GetSystemMenu(mhwnd, FALSE);
+                if (hMenu)
+                    EnableMenuItem(hMenu, SC_CLOSE,
+                                   MF_BYCOMMAND | MF_DISABLED | MF_GRAYED);
+            }
+        }
+
+        // Inherit app icon
+        HICON hIcon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(101));
+        if (hIcon) {
+            SendMessage(mhwnd, WM_SETICON, ICON_BIG,   (LPARAM)hIcon);
+            SendMessage(mhwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
+        }
+#endif
+        // Set size (handles DPI scaling internally)
+        modal.set_size(p->width, p->height, WEBVIEW_HINT_FIXED);
+
+#ifdef _WIN32
+        // Center on nearest monitor
+        {
+            RECT wr;
+            GetWindowRect(mhwnd, &wr);
+            int aw = wr.right - wr.left;
+            int ah = wr.bottom - wr.top;
+            HMONITOR hMon = MonitorFromWindow(mhwnd, MONITOR_DEFAULTTONEAREST);
+            MONITORINFO mi = { sizeof(mi) };
+            if (GetMonitorInfo(hMon, &mi)) {
+                int x = mi.rcWork.left + (mi.rcWork.right  - mi.rcWork.left - aw) / 2;
+                int y = mi.rcWork.top  + (mi.rcWork.bottom - mi.rcWork.top  - ah) / 2;
+                SetWindowPos(mhwnd, HWND_TOP, x, y, 0, 0,
+                             SWP_NOSIZE | SWP_SHOWWINDOW);
+            }
+        }
+
+        // Apply rounded corners to frameless windows
+        if (!p->useOsChrome && p->cornerRadius > 0) {
+            RECT wr;
+            GetWindowRect(mhwnd, &wr);
+            int aw = wr.right - wr.left;
+            int ah = wr.bottom - wr.top;
+            int r  = p->cornerRadius;
+            HRGN hRgn = CreateRoundRectRgn(0, 0, aw, ah, r, r);
+            SetWindowRgn(mhwnd, hRgn, TRUE);
+        }
+#endif
+
+        // _modalClose: called by closeModal() inside the modal HTML
+        modal.bind("_modalClose", [&result, &modal](std::string req) -> std::string {
+            // req arrives as a JSON array e.g. [true] or ["hello"] or [null]
+            std::string val = req;
+            if (val.size() >= 2 && val.front() == '[' && val.back() == ']')
+                val = val.substr(1, val.size() - 2);
+            if (val.empty()) val = "null";
+            result = val;
+            modal.terminate();
+            return "";
+        });
+
+        // dragWindow: lets custom titlebars initiate native window drag
+        modal.bind("dragWindow", [mhwnd](std::string) -> std::string {
+#ifdef _WIN32
+            if (mhwnd) { ReleaseCapture(); SendMessage(mhwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0); }
+#endif
+            return "";
+        });
+
+        modal.set_html(p->generatedHtml);
+        modal.run();
+    }
+
+    // Resolve the parent window's Promise with the modal's return value
+    std::string resolvedValue   = result;
+    webview::webview* parentWv  = p->parentWv;
+    parentWv->dispatch([parentWv, resolvedValue]() {
+        parentWv->eval("window.__esd_resolveModal(" + resolvedValue + ")");
+    });
+
+    delete p;
+    CoUninitialize();
+    return 0;
+}
 
 // Helper to get current directory and resolve project root
 std::string GetCurrentWorkingDir() {
@@ -198,9 +361,27 @@ void ApplyWindowProperties(webview::webview& w, HWND hwnd, const std::unordered_
 #endif
 }
 
+#ifdef _WIN32
+// Switches the window to borderless fullscreen covering the entire primary monitor.
+void ApplyFullscreen(webview::webview& w, HWND hwnd) {
+    if (!hwnd) return;
+    int screenWidth  = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    // WS_VISIBLE must be kept — dropping it hides the native window while leaving
+    // the WebView2 child surfaces visible, producing the staircase-white artifact.
+    SetWindowLongPtr(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+    // Clear any rounded-corner clipping region before covering the full screen.
+    SetWindowRgn(hwnd, NULL, FALSE);
+    SetWindowPos(hwnd, HWND_TOP, 0, 0, screenWidth, screenHeight,
+                 SWP_FRAMECHANGED | SWP_NOOWNERZORDER);
+    w.set_size(screenWidth, screenHeight, WEBVIEW_HINT_FIXED);
+}
+#endif
+
 int main() {
     std::string cwd = GetCurrentWorkingDir();
     auto rootConfig = LoadConfig(cwd + "/properties.config");
+    bool isFullscreen = (rootConfig.count("FULLSCREEN") && rootConfig.at("FULLSCREEN") == "true");
     
     // Check if terminal should be hidden
     bool hideTerminal = (rootConfig.count("SHOW_TERMINAL") && rootConfig["SHOW_TERMINAL"] == "false");
@@ -227,13 +408,47 @@ int main() {
 
     // 1. Initialize Python Interpreter
     Py_Initialize();
-    PyRun_SimpleString("import sys, os\n"
-                       "sys.path.append(os.getcwd())\n"
-                       "print('Python backend initialized.')");
+    // Build a forward-slash version of cwd safe to embed in a Python string literal
+    std::string pyCwd = cwd;
+    for (char& c : pyCwd) { if (c == '\\') c = '/'; }
+
+    PyRun_SimpleString(("import sys\nsys.path.insert(0, '" + pyCwd + "')\nprint('Python backend initialized.')").c_str());
+
+    // Start local file server on port 2024 to serve project files to the webview.
+    // Uses the C++ computed project root so it works correctly from any working directory.
+    // Runs as a daemon thread so it exits automatically when the main process exits.
+    {
+        std::string serverScript =
+            "import threading, http.server, socket, time\n"
+            "class _ESDHandler(http.server.SimpleHTTPRequestHandler):\n"
+            "    def __init__(self, *a, **kw):\n"
+            "        super().__init__(*a, directory='" + pyCwd + "', **kw)\n"
+            "    def end_headers(self):\n"
+            "        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')\n"
+            "        self.send_header('Pragma', 'no-cache')\n"
+            "        self.send_header('Expires', '0')\n"
+            "        super().end_headers()\n"
+            "    def log_message(self, fmt, *a): pass\n"
+            "def _run_server():\n"
+            "    try:\n"
+            "        srv = http.server.HTTPServer(('127.0.0.1', 2024), _ESDHandler)\n"
+            "        srv.serve_forever()\n"
+            "    except OSError:\n"
+            "        pass\n"
+            "threading.Thread(target=_run_server, daemon=True).start()\n"
+            "# Block until port is accepting connections (max ~5 s)\n"
+            "for _ in range(50):\n"
+            "    try:\n"
+            "        _c = socket.create_connection(('127.0.0.1', 2024), timeout=0.1)\n"
+            "        _c.close(); break\n"
+            "    except OSError:\n"
+            "        time.sleep(0.1)\n";
+        PyRun_SimpleString(serverScript.c_str());
+    }
 
 #ifdef _WIN32
-    // Allows CORS fetching and module scripting directly out of the local file:// protocol
-    _putenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--allow-file-access-from-files --remote-allow-origins=*");
+    // Disable WebView2's persistent disk cache so every launch always loads fresh files.
+    _putenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-allow-origins=* --disable-cache --disable-application-cache");
 #endif
 
     // 2. Initialize the Webview
@@ -284,18 +499,21 @@ int main() {
 #ifdef ESD_EMBED_HTML
         std::string splashHtml = GetPageHtml("ui/splash/splash.html");
         if (!splashHtml.empty()) { w.set_html(splashHtml); }
-        else { w.navigate("file://" + cwdUri + "/ui/splash/splash.html"); }
+        else { w.navigate("http://127.0.0.1:2024/ui/splash/splash.html?v=" + std::to_string(std::time(nullptr))); }
 #else
-        w.navigate("file://" + cwdUri + "/ui/splash/splash.html");
+        w.navigate("http://127.0.0.1:2024/ui/splash/splash.html?v=" + std::to_string(std::time(nullptr)));
 #endif
     } else {
         ApplyWindowProperties(w, hwnd, rootConfig, dragBackground);
 #ifdef ESD_EMBED_HTML
         std::string mainHtml = GetPageHtml(mainPageFile);
         if (!mainHtml.empty()) { w.set_html(mainHtml); }
-        else { w.navigate("file://" + cwdUri + "/" + mainPageFile); }
+        else { w.navigate("http://127.0.0.1:2024/" + mainPageFile + "?v=" + std::to_string(std::time(nullptr))); }
 #else
-        w.navigate("file://" + cwdUri + "/" + mainPageFile);
+        w.navigate("http://127.0.0.1:2024/" + mainPageFile + "?v=" + std::to_string(std::time(nullptr)));
+#endif
+#ifdef _WIN32
+        if (isFullscreen) ApplyFullscreen(w, hwnd);
 #endif
     }
 
@@ -335,8 +553,11 @@ int main() {
             payload = req;
         }
 
+        // Reacquire GIL for this callback — the main thread released it before w.run()
+        PyGILState_STATE gstate = PyGILState_Ensure();
         std::string pyRes = CallPythonBackend(payload);
-        return pyRes; 
+        PyGILState_Release(gstate);
+        return pyRes;
     });
 
     // Binding for splash screen to trigger transition
@@ -345,9 +566,36 @@ int main() {
 #ifdef ESD_EMBED_HTML
         std::string mainHtml = GetPageHtml(mainPageFile);
         if (!mainHtml.empty()) { w.set_html(mainHtml); }
-        else { w.navigate("file://" + cwdUri + "/" + mainPageFile); }
+        else { w.navigate("http://127.0.0.1:2024/" + mainPageFile); }
 #else
-        w.navigate("file://" + cwdUri + "/" + mainPageFile);
+        w.navigate("http://127.0.0.1:2024/" + mainPageFile);
+#endif
+#ifdef _WIN32
+        if (isFullscreen) ApplyFullscreen(w, hwnd);
+#endif
+        return "";
+    });
+
+    // Window control bindings — usable from any custom titlebar or button
+    w.bind("windowClose", [&](std::string req) -> std::string {
+#ifdef _WIN32
+        if (hwnd) PostMessage(hwnd, WM_CLOSE, 0, 0);
+#endif
+        return "";
+    });
+
+    w.bind("windowMinimize", [&](std::string req) -> std::string {
+#ifdef _WIN32
+        if (hwnd) ShowWindow(hwnd, SW_MINIMIZE);
+#endif
+        return "";
+    });
+
+    w.bind("windowMaximize", [&](std::string req) -> std::string {
+#ifdef _WIN32
+        if (hwnd) {
+            ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE);
+        }
 #endif
         return "";
     });
@@ -394,12 +642,178 @@ int main() {
         });
     )");
 
+    // C++ binding: opens a modal HTML file as a native OS window on its own thread.
+    // The parent's Promise is resolved when the modal calls closeModal(value).
+    w.bind("_openModalNative", [&](std::string req) -> std::string {
+        // Payload: JSON array ["modalName"] — strip wrapper
+        std::string modalName = req;
+        if (modalName.size() >= 4 && modalName.front() == '[' && modalName.back() == ']')
+            modalName = modalName.substr(2, modalName.size() - 4);
+
+        std::string modalPath = cwd + "/ui/modals/" + modalName + ".html";
+        std::ifstream mf(modalPath);
+        if (!mf.is_open()) {
+            w.eval("window.__esd_resolveModal(null)");
+            return "";
+        }
+        std::stringstream mss;
+        mss << mf.rdbuf();
+        std::string src = mss.str();
+
+        // ── Parse <modal> attributes ────────────────────────────────────────
+        std::string modalTag = ModalOpenTag(src, "modal");
+        int mWidth  = 400, mHeight = 300;
+        bool mBlur     = false;
+        bool mCloseable = true;
+
+        if (!modalTag.empty()) {
+            try { mWidth  = std::stoi(ModalAttr(modalTag, "width",  "400")); } catch (...) {}
+            try { mHeight = std::stoi(ModalAttr(modalTag, "height", "300")); } catch (...) {}
+            mBlur      = (ModalAttr(modalTag, "blur",      "false") == "true");
+            mCloseable = (ModalAttr(modalTag, "closeable", "true")  != "false");
+        }
+
+        // ── Parse <titlebar> section ────────────────────────────────────────
+        // <titlebar value="false"> → custom HTML titlebar, no OS chrome
+        // <titlebar value="true">  → use OS native titlebar
+        // No <titlebar> element    → use OS native titlebar
+        std::string titlebarOpenTag = ModalOpenTag(src, "titlebar");
+        bool useOsChrome  = true;
+        bool customTitlebar = false;
+        int  titlebarH    = 38;
+        std::string titlebarHtml;
+
+        if (!titlebarOpenTag.empty()) {
+            std::string tbVal = ModalAttr(titlebarOpenTag, "value", "true");
+            if (tbVal == "false") {
+                useOsChrome   = false;
+                customTitlebar = true;
+                try { titlebarH = std::stoi(ModalAttr(titlebarOpenTag, "height", "38")); } catch (...) {}
+                titlebarHtml = ModalInner(src, "titlebar");
+            }
+        }
+
+        // ── Parse <title><value>...</value></title> ──────────────────────────
+        std::string titleInner  = ModalInner(src, "title");
+        std::string windowTitle = ModalInner(titleInner, "value");
+        if (windowTitle.empty()) windowTitle = modalName;
+
+        // ── Parse <content> and <script> ────────────────────────────────────
+        std::string contentHtml   = ModalInner(src, "content");
+        std::string scriptContent = ModalInner(src, "script");
+
+        // ── Generate a full standalone HTML page for the modal window ────────
+        std::string tbH = std::to_string(titlebarH);
+        std::string generatedHtml;
+
+        if (customTitlebar) {
+            generatedHtml =
+                "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>"
+                "* { margin:0; padding:0; box-sizing:border-box; }"
+                "html,body { width:100%; height:100%; overflow:hidden; }"
+                ".esd-tb-wrap { position:relative; height:" + tbH + "px; flex-shrink:0; overflow:hidden; }"
+                ".esd-tb-drag { position:absolute; inset:0; z-index:0; cursor:move; }"
+                ".esd-tb-content { position:relative; z-index:1; height:100%; pointer-events:none; }"
+                ".esd-tb-content button,.esd-tb-content input,.esd-tb-content a,"
+                ".esd-tb-content select,.esd-tb-content label { pointer-events:auto; }"
+                ".esd-body { position:absolute; top:" + tbH + "px; left:0; right:0; bottom:0;"
+                " overflow:auto; display:flex; align-items:center; justify-content:center; }"
+                "</style></head>"
+                "<body style=\"display:flex;flex-direction:column;\">"
+                "<div class=\"esd-tb-wrap\">"
+                "<div class=\"esd-tb-drag\" onmousedown=\"if(window.dragWindow)dragWindow()\"></div>"
+                "<div class=\"esd-tb-content\">" + titlebarHtml + "</div>"
+                "</div>"
+                "<div class=\"esd-body\">" + contentHtml + "</div>"
+                "<script>"
+                "function closeModal(v){if(window._modalClose)window._modalClose(v!==undefined?v:null);}"
+                + scriptContent +
+                "</script>"
+                "</body></html>";
+        } else {
+            generatedHtml =
+                "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><style>"
+                "* { margin:0; padding:0; box-sizing:border-box; }"
+                "html,body { width:100%; height:100%; overflow:hidden; }"
+                ".esd-body { width:100%; height:100%; display:flex;"
+                " align-items:center; justify-content:center; }"
+                "</style></head>"
+                "<body>"
+                "<div class=\"esd-body\">" + contentHtml + "</div>"
+                "<script>"
+                "function closeModal(v){if(window._modalClose)window._modalClose(v!==undefined?v:null);}"
+                + scriptContent +
+                "</script>"
+                "</body></html>";
+        }
+
+        // ── Optional: blur/dim the parent window while modal is open ─────────
+        if (mBlur) {
+            w.eval(
+                "(function(){"
+                "var o=document.createElement('div');"
+                "o.id='__esd_blur_overlay__';"
+                "o.style.cssText='position:fixed;inset:0;z-index:9998;"
+                "backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);"
+                "background:rgba(0,0,0,0.35);pointer-events:none;';"
+                "document.body.appendChild(o);"
+                "})()");
+        }
+
+        // ── Read ui/modals/properties.config for corner radius ───────────────
+        int mCornerRadius = 0;
+        {
+            auto modalCfg = LoadConfig(cwd + "/ui/modals/properties.config");
+            if (modalCfg.count("CORNER_RADIUS")) {
+                try { mCornerRadius = std::stoi(modalCfg.at("CORNER_RADIUS")); } catch (...) {}
+            }
+        }
+
+        // ── Spawn the modal on its own thread with its own message loop ───────
+        auto* params = new ModalThreadParams{
+            generatedHtml, windowTitle,
+            mWidth, mHeight, mCornerRadius,
+            useOsChrome, mCloseable, devTools,
+            &w
+        };
+        HANDLE hThread = CreateThread(nullptr, 0, ModalWindowThread, params, 0, nullptr);
+        if (hThread) CloseHandle(hThread);
+
+        return "";
+    });
+
+    // JS modal API — openModal(name) returns a Promise resolved by the modal's closeModal(value).
+    w.init(R"ESDMODAL(
+(function () {
+    window.openModal = function (name) {
+        return new Promise(function (resolve) {
+            window.__esd_modalResolve = resolve;
+            window._openModalNative(name);
+        });
+    };
+
+    window.__esd_resolveModal = function (value) {
+        var el = document.getElementById('__esd_blur_overlay__');
+        if (el) el.remove();
+        if (window.__esd_modalResolve) {
+            window.__esd_modalResolve(value !== undefined ? value : null);
+            window.__esd_modalResolve = null;
+        }
+    };
+})();
+)ESDMODAL");
+
     if (!hideTerminal) {
         std::cout << "Loading Interface..." << std::endl;
     }
 
     // 4. Run loop
+    // Release the GIL so the Python HTTP server daemon thread can process requests.
+    // Without this, the main thread holds the GIL through the entire event loop,
+    // starving the server thread and producing a black screen.
+    PyThreadState* _pyThreadState = PyEval_SaveThread();
     w.run();
+    PyEval_RestoreThread(_pyThreadState);
 
     // 5. Cleanup
     Py_Finalize();
